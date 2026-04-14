@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Claude_Preview__preview_start",
+      "WebFetch(domain:clinicaltrials.gov)",
+      "Bash(curl -s \"https://clinicaltrials.gov/api/v2/studies/NCT05687266?format=json\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); ps=d.get\\('protocolSection',{}\\); print\\(json.dumps\\({k: ps[k] for k in ['identificationModule','statusModule','sponsorCollaboratorsModule','descriptionModule','conditionsModule','designModule']}, indent=2\\)\\)\")",
+      "Bash(sed -i 's/^from datetime import datetime$/from datetime import datetime, timezone/' main.py scraper.py)",
+      "Bash(sed -i 's/^from datetime import datetime, timedelta$/from datetime import datetime, timedelta, timezone/' notifier.py)",
+      "Bash(pip list:*)",
+      "Bash(pip install:*)",
+      "Bash(python -m playwright install chromium)",
+      "Bash(python -c \"from config import settings; print\\('Config OK:', settings.TARGET_URL\\)\")",
+      "Bash(python -c ':*)",
+      "Bash(curl -s http://localhost:8000/api/health)",
+      "Bash(curl -s http://localhost:8000/api/status)",
+      "Bash(python -m json.tool)",
+      "Bash(curl -s -X POST http://localhost:8000/api/start)",
+      "Bash(curl -s -X POST http://localhost:8000/api/notifications/settings -H 'Content-Type: application/json' -d '{\"twilio_account_sid\":\"ACtest123\",\"twilio_auth_token\":\"abc123def456\",\"twilio_phone_from\":\"+15551234567\",\"sms_enabled\":true,\"sms_numbers\":[\"+213661234567\"],\"whatsapp_enabled\":false,\"whatsapp_numbers\":[]}')",
+      "Bash(curl -s http://localhost:8000/api/notifications/settings)",
+      "Bash(curl -s -X POST http://localhost:8000/api/notifications/test -H 'Content-Type: application/json' -d '{\"channel\":\"sms\",\"number\":\"+213661234567\"}')",
+      "Bash(curl -s -X POST http://localhost:8000/api/notifications/settings -H 'Content-Type: application/json' -d '{\"twilio_account_sid\":\"\",\"twilio_auth_token\":\"\",\"twilio_phone_from\":\"\",\"sms_enabled\":false,\"sms_numbers\":[],\"whatsapp_enabled\":false,\"whatsapp_numbers\":[]}')",
+      "Bash(curl -s -X POST http://localhost:8000/api/notifications/test -H 'Content-Type: application/json' -d '{\"channel\":\"telegram\",\"number\":\"123456789\"}')",
+      "Bash(curl -s -X POST http://localhost:8000/api/notifications/settings -H 'Content-Type: application/json' -d '{\"telegram_enabled\":true,\"telegram_bot_token\":\"123456:FAKETOKEN\",\"telegram_chat_ids\":[\"987654321\"]}')",
+      "Bash(curl -s -X POST http://localhost:8000/api/notifications/test -H 'Content-Type: application/json' -d '{\"channel\":\"telegram\",\"number\":\"987654321\"}')",
+      "Bash(curl -s -X POST http://localhost:8000/api/notifications/settings -H 'Content-Type: application/json' -d '{\"telegram_enabled\":false,\"telegram_bot_token\":\"\",\"telegram_chat_ids\":[]}')",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} %{redirect_url}\" \"https://www.blsspainvisa.com/algeria/bookappointment.php\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://www.blsspainvisa.com/algeria/\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://blsspainvisa.com/\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://algeria.blsspainvisa.com/\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://www.blsspainvisa.com/\")",
+      "Bash(curl -sL -o /dev/null -w \"%{url_effective} %{http_code}\" \"https://blsspainvisa.com/\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://algeria.blsspainvisa.com/algiers\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://algeria.blsspainvisa.com/oran\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://algeria.blsspainglobal.com/DZA/account/login\")",
+      "Bash(curl -sL -o /dev/null -w '%{http_code} %{url_effective}' -A 'Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36' https://algeria.blsspainglobal.com/DZA/account/login)",
+      "Bash(curl -sL -o /dev/null -w '%{http_code} %{url_effective}' -A 'Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36' https://algeria.blsspainglobal.com/DZA/bls/appointment)",
+      "Bash(curl -sL -o /dev/null -w '%{http_code} %{url_effective}' -A Mozilla/5.0 https://algeria.blsspainglobal.com/DZA/)",
+      "Bash(curl -sL -o /dev/null -w '%{http_code} %{url_effective}' -A Mozilla/5.0 https://algeria.blsspainglobal.com/)",
+      "Bash(npm run:*)"
+    ]
+  }
+}

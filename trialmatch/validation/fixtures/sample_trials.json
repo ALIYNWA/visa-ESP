@@ -1,0 +1,129 @@
+[
+  {
+    "trial_id": "TRIAL-001",
+    "protocol": {
+      "title": "Immunothérapie CBNPC Phase II",
+      "eudract_number": "2024-001111-01",
+      "phase": "II",
+      "pathology": "Cancer bronchique non à petites cellules",
+      "criteria": [
+        {"type": "INC", "text": "Age >= 18 ans", "order": 0},
+        {"type": "INC", "text": "ECOG Performance Status <= 2", "order": 1},
+        {"type": "INC", "text": "Diagnostic histologique confirmé de CBNPC stade IIIB ou IV", "order": 2},
+        {"type": "EXC", "text": "Traitement antérieur par anti-PD1/PD-L1", "order": 3},
+        {"type": "EXC", "text": "Créatinine > 1.5x la limite supérieure de la normale", "order": 4}
+      ]
+    },
+    "test_cases": [
+      {
+        "case_id": "TRIAL-001-ELIGIBLE",
+        "patient_context": {
+          "age": 62,
+          "sexe": "M",
+          "diagnostic_principal": "CBNPC stade IV",
+          "stade": "IV",
+          "ecog_performance_status": 1,
+          "traitements_en_cours": ["Carboplatine", "Paclitaxel"],
+          "biologie": {"creatinine": "0.9 mg/dL"},
+          "antecedents": ["HTA"]
+        },
+        "expected_verdict": "eligible",
+        "expected_min_score": 80
+      },
+      {
+        "case_id": "TRIAL-001-NONELIGIBLE-AGE",
+        "patient_context": {
+          "age": 16,
+          "sexe": "F",
+          "diagnostic_principal": "CBNPC stade IIIB",
+          "stade": "IIIB",
+          "ecog_performance_status": 0,
+          "traitements_en_cours": [],
+          "biologie": {"creatinine": "0.8 mg/dL"},
+          "antecedents": []
+        },
+        "expected_verdict": "non_eligible",
+        "expected_max_score": 80
+      },
+      {
+        "case_id": "TRIAL-001-NONELIGIBLE-PRIOR-IO",
+        "patient_context": {
+          "age": 55,
+          "sexe": "F",
+          "diagnostic_principal": "CBNPC stade IV",
+          "stade": "IV",
+          "ecog_performance_status": 1,
+          "traitements_en_cours": ["Nivolumab"],
+          "biologie": {"creatinine": "1.0 mg/dL"},
+          "antecedents": ["Traitement antérieur par Pembrolizumab (anti-PD1)"]
+        },
+        "expected_verdict": "non_eligible",
+        "expected_max_score": 80
+      },
+      {
+        "case_id": "TRIAL-001-INCOMPLET-NO-BIO",
+        "patient_context": {
+          "age": 70,
+          "sexe": "M",
+          "diagnostic_principal": "CBNPC stade IV",
+          "stade": "IV",
+          "ecog_performance_status": 2,
+          "traitements_en_cours": [],
+          "biologie": {},
+          "antecedents": []
+        },
+        "expected_verdict": "incomplet",
+        "expected_min_score": 0
+      }
+    ]
+  },
+  {
+    "trial_id": "TRIAL-002",
+    "protocol": {
+      "title": "Chimiothérapie Leucémie Phase III",
+      "eudract_number": "2024-002222-02",
+      "phase": "III",
+      "pathology": "Leucémie aiguë myéloïde",
+      "criteria": [
+        {"type": "INC", "text": "Age 18-75 ans", "order": 0},
+        {"type": "INC", "text": "Diagnostic de LAM confirmé par cytologie et immunophénotypage", "order": 1},
+        {"type": "INC", "text": "ECOG PS 0-2", "order": 2},
+        {"type": "EXC", "text": "LAM secondaire à un syndrome myélodysplasique préexistant", "order": 3},
+        {"type": "EXC", "text": "Insuffisance hépatique sévère (bilirubine > 3x LSN)", "order": 4},
+        {"type": "EXC", "text": "Grossesse ou allaitement", "order": 5}
+      ]
+    },
+    "test_cases": [
+      {
+        "case_id": "TRIAL-002-ELIGIBLE",
+        "patient_context": {
+          "age": 45,
+          "sexe": "M",
+          "diagnostic_principal": "LAM de novo",
+          "stade": "N/A",
+          "ecog_performance_status": 1,
+          "traitements_en_cours": [],
+          "biologie": {"bilirubine": "0.8 mg/dL", "blastes_medullaires": "72%"},
+          "antecedents": []
+        },
+        "expected_verdict": "eligible",
+        "expected_min_score": 85
+      },
+      {
+        "case_id": "TRIAL-002-NONELIGIBLE-AGE",
+        "patient_context": {
+          "age": 82,
+          "sexe": "F",
+          "diagnostic_principal": "LAM de novo",
+          "stade": "N/A",
+          "ecog_performance_status": 2,
+          "traitements_en_cours": [],
+          "biologie": {"bilirubine": "1.0 mg/dL"},
+          "antecedents": []
+        },
+        "expected_verdict": "non_eligible",
+        "expected_max_score": 80
+      }
+    ]
+  }
+]

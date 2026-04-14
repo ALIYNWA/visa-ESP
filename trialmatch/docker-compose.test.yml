@@ -1,0 +1,58 @@
+# TrialMatch — Docker Compose Tests
+# Utilise une base de données en mémoire / test séparée
+
+version: "3.9"
+
+volumes:
+  test_postgres_data:
+
+networks:
+  test_network:
+    driver: bridge
+    internal: true
+
+services:
+
+  db_test:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: trialmatch_test
+      POSTGRES_USER: trialmatch_test
+      POSTGRES_PASSWORD: test_password_ci
+    volumes:
+      - test_postgres_data:/var/lib/postgresql/data
+    networks:
+      - test_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trialmatch_test -d trialmatch_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  tests:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: test
+    environment:
+      APP_ENV: test
+      DATABASE_URL: postgresql+asyncpg://trialmatch_test:test_password_ci@db_test:5432/trialmatch_test
+      OLLAMA_BASE_URL: http://mock-ollama:11434
+      OLLAMA_MODEL: meditron:70b
+      JWT_SECRET_KEY: test-jwt-secret-key-for-testing-only
+      ENCRYPTION_KEY: dGVzdC1lbmNyeXB0aW9uLWtleS0zMmJ5dGVzLWxvbmc=
+      ENCRYPTION_SALT: dGVzdC1zYWx0LTE2Ynl0ZXM=
+      PBKDF2_ITERATIONS: 1000
+      LOG_LEVEL: DEBUG
+    networks:
+      - test_network
+    depends_on:
+      db_test:
+        condition: service_healthy
+    command: >
+      sh -c "
+        alembic upgrade head &&
+        pytest -v --tb=short --asyncio-mode=auto
+               --cov=app --cov-report=term-missing
+               tests/
+      "

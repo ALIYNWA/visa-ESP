@@ -1,0 +1,13 @@
+{
+  "telegram_enabled": false,
+  "telegram_bot_token": "",
+  "telegram_chat_ids": [],
+  "sms_enabled": false,
+  "sms_numbers": [],
+  "whatsapp_enabled": false,
+  "whatsapp_numbers": [],
+  "twilio_account_sid": "",
+  "twilio_auth_token": "",
+  "twilio_phone_from": "",
+  "twilio_whatsapp_from": "whatsapp:+14155238886"
+}

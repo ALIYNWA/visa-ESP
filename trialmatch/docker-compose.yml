@@ -1,0 +1,153 @@
+# TrialMatch — Docker Compose Production
+# Réseau entièrement isolé, zéro accès internet
+
+version: "3.9"
+
+# ── Secrets Docker (fichiers montés dans les conteneurs) ──────────────────────
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt          # Mot de passe PostgreSQL
+  encryption_key:
+    file: ./secrets/encryption_key.txt       # Clé AES-256 chiffrement données
+  jwt_secret:
+    file: ./secrets/jwt_secret.txt           # Secret signature JWT
+
+# ── Volumes persistants ────────────────────────────────────────────────────────
+volumes:
+  postgres_data:                             # Données PostgreSQL chiffrées
+    driver: local
+  ollama_models:                             # Modèles LLM téléchargés
+    driver: local
+  backend_logs:                              # Logs audit append-only
+    driver: local
+
+# ── Réseau interne isolé (pas d'accès internet) ────────────────────────────────
+networks:
+  trialmatch_internal:
+    driver: bridge
+    internal: true                           # CRITIQUE : bloque tout accès externe
+  trialmatch_frontend:
+    driver: bridge
+    internal: false                          # Seul réseau exposé (frontend <-> navigateur)
+
+services:
+
+  # ── PostgreSQL 16 ────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped                  # Redémarrage automatique hors arrêt manuel
+    environment:
+      POSTGRES_DB: trialmatch
+      POSTGRES_USER: trialmatch
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    secrets:
+      - db_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - trialmatch_internal                  # Jamais exposé sur le réseau externe
+    # Pas de ports exposés : PostgreSQL n'est accessible que via le réseau Docker interne
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trialmatch -d trialmatch"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "2"                          # Limite CPU pour éviter la saturation
+          memory: 2G                         # Limite RAM PostgreSQL
+
+  # ── Ollama (LLM local Meditron) ───────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama_models:/root/.ollama         # Persistance des modèles téléchargés
+    networks:
+      - trialmatch_internal                  # Accessible uniquement par le backend
+    # Pas de ports exposés : Ollama n'est accessible que depuis le backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia               # GPU NVIDIA requis pour Meditron 70B
+              count: all
+              capabilities: [gpu]
+        limits:
+          cpus: "8"
+          memory: 80G                      # Meditron 70B nécessite ~40GB VRAM + buffer
+
+  # ── Backend FastAPI ───────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgresql+asyncpg://trialmatch:${POSTGRES_PASSWORD}@db:5432/trialmatch
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-meditron:70b}
+      JWT_ALGORITHM: HS256
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: 480
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_FILE: /app/logs/trialmatch.jsonl
+      PBKDF2_ITERATIONS: 600000
+    secrets:
+      - db_password
+      - encryption_key
+      - jwt_secret
+    volumes:
+      - backend_logs:/app/logs              # Logs audit persistants
+    networks:
+      - trialmatch_internal                  # Accès DB et Ollama
+      - trialmatch_frontend                  # Exposé au frontend/nginx
+    depends_on:
+      db:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 4G
+
+  # ── Frontend React (Nginx) ────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:80"                           # Seul port exposé à l'hôpital
+    networks:
+      - trialmatch_frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
