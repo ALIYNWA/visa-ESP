@@ -4,6 +4,7 @@ Scraper éthique avec Playwright
 - Rotation de User-Agent
 - Retry avec backoff exponentiel
 - Détection multi-stratégies de disponibilité
+- Gestion blocage géographique + proxy optionnel
 """
 import asyncio
 import random
@@ -27,7 +28,7 @@ from models import CheckResult
 logger = logging.getLogger(__name__)
 
 # ------------------------------------------------------------------
-# Rotation de User-Agents
+# Rotation de User-Agents (navigateurs réels récents)
 # ------------------------------------------------------------------
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
@@ -38,7 +39,24 @@ USER_AGENTS = [
 ]
 
 # ------------------------------------------------------------------
-# Textes indiquant l'ABSENCE de créneaux
+# Patterns de BLOCAGE GEO / Access Denied
+# ------------------------------------------------------------------
+GEO_BLOCK_PATTERNS = [
+    "access denied",
+    "access may be restricted",
+    "not accessible from your current location",
+    "vpn or proxy",
+    "restricted due to",
+    "outside the permitted country",
+    "supported region",
+    "forbidden",
+    "403 forbidden",
+    "cloudflare",
+    "ray id",
+]
+
+# ------------------------------------------------------------------
+# Patterns indiquant l'ABSENCE de créneaux
 # ------------------------------------------------------------------
 NO_SLOT_PATTERNS = [
     "no appointment",
@@ -46,7 +64,7 @@ NO_SLOT_PATTERNS = [
     "no date available",
     "not available",
     "currently no",
-    "aucun créneau",
+    "aucun creneau",
     "aucune date",
     "pas de rendez",
     "no hay cita",
@@ -54,11 +72,12 @@ NO_SLOT_PATTERNS = [
     "slots not available",
     "no appointments available",
     "there are no",
-    "لا يوجد موعد",  # arabe
+    "booked",
+    "fully booked",
 ]
 
 # ------------------------------------------------------------------
-# Textes indiquant la DISPONIBILITÉ
+# Patterns indiquant la DISPONIBILITÉ
 # ------------------------------------------------------------------
 AVAILABLE_PATTERNS = [
     "select date",
@@ -69,156 +88,109 @@ AVAILABLE_PATTERNS = [
     "slot available",
     "appointment available",
     "rendez-vous disponible",
-    "créneaux disponibles",
     "sélectionner une date",
-    "موعد متاح",  # arabe
+    "selectionner une date",
+    "book appointment",
+    "schedule",
+    "calendar",
 ]
 
 
-def _random_delay(min_ms: int = 800, max_ms: int = 2500):
-    """Simule un délai humain."""
-    return random.uniform(min_ms / 1000, max_ms / 1000)
-
-
-async def _human_pause(page: Page, min_ms: int = 500, max_ms: int = 1500):
-    """Pause aléatoire pour simuler un comportement humain."""
-    delay = _random_delay(min_ms, max_ms)
-    await asyncio.sleep(delay)
+async def _human_pause(min_ms: int = 800, max_ms: int = 2500):
+    await asyncio.sleep(random.uniform(min_ms / 1000, max_ms / 1000))
 
 
 def _build_context_options() -> dict:
-    """Options de contexte Playwright anti-détection."""
+    """Options de contexte Playwright — imite un vrai navigateur algérien."""
     return {
         "user_agent": random.choice(USER_AGENTS),
         "viewport": random.choice([
             {"width": 1920, "height": 1080},
             {"width": 1366, "height": 768},
             {"width": 1440, "height": 900},
-            {"width": 1280, "height": 800},
         ]),
-        "locale": "fr-FR",
+        "locale": "fr-DZ",
         "timezone_id": "Africa/Algiers",
         "extra_http_headers": {
-            "Accept-Language": "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Accept-Language": "fr-DZ,fr;q=0.9,ar;q=0.8,en;q=0.7",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-            "DNT": "1",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
         },
     }
 
 
+def _is_geo_blocked(page_text: str) -> bool:
+    t = page_text.lower()
+    return any(p in t for p in GEO_BLOCK_PATTERNS)
+
+
 async def _detect_availability(page: Page) -> Tuple[bool, int, str]:
     """
-    Détecte la disponibilité via plusieurs stratégies :
-    1. Présence d'éléments de calendrier actifs
-    2. Analyse textuelle du contenu
-    3. Présence de messages d'erreur/info
-
+    Détecte la disponibilité via plusieurs stratégies.
     Retourne: (available, slots_count, message)
     """
-    page_text = (await page.inner_text("body")).lower().strip()
+    try:
+        page_text = (await page.inner_text("body")).lower().strip()
+    except Exception:
+        page_text = (await page.content()).lower()
 
-    # --- Stratégie 1 : Sélecteur CSS direct (à adapter selon le site) ---
+    # --- Détection blocage géographique EN PREMIER ---
+    if _is_geo_blocked(page_text):
+        return False, 0, "GEO_BLOCKED: Accès refusé depuis cette région — désactivez votre VPN"
+
+    # --- Stratégie 1 : Sélecteurs CSS calendrier ---
     slot_selectors = [
-        "table.datepicker td:not(.disabled):not(.unavailable)",
+        "table.datepicker td:not(.disabled):not(.unavailable):not(.past)",
         ".available-date",
         ".slot-available",
         "input[type='radio'][name*='date']",
         "select[name*='date'] option:not([disabled])",
         ".calendar-day.available",
         "td.available",
+        ".fc-day:not(.fc-day-disabled)",
+        "[data-date]:not(.disabled)",
     ]
-
     slots_found = 0
     for selector in slot_selectors:
         try:
             elements = await page.query_selector_all(selector)
-            if elements:
-                # Filtrer les éléments vraiment visibles
-                visible = []
-                for el in elements:
-                    if await el.is_visible():
-                        visible.append(el)
-                if visible:
-                    slots_found = len(visible)
-                    logger.debug(f"Sélecteur '{selector}' → {slots_found} créneaux visibles")
-                    break
+            visible = [el for el in elements if await el.is_visible()]
+            if visible:
+                slots_found = len(visible)
+                break
         except PWError:
             continue
 
     # --- Stratégie 2 : Patterns textuels ---
     for pattern in NO_SLOT_PATTERNS:
         if pattern in page_text:
-            return False, 0, f"Message détecté : '{pattern}'"
+            return False, 0, f"Aucun creneau — '{pattern}' detecte"
 
     for pattern in AVAILABLE_PATTERNS:
         if pattern in page_text:
-            return True, max(slots_found, 1), f"Disponibilité détectée : '{pattern}'"
+            return True, max(slots_found, 1), f"Disponibilite detectee : '{pattern}'"
 
     # --- Stratégie 3 : Créneaux CSS ---
     if slots_found > 0:
-        return True, slots_found, f"{slots_found} créneau(x) trouvé(s) dans le calendrier"
+        return True, slots_found, f"{slots_found} creneau(x) trouve(s) dans le calendrier"
 
-    # --- Stratégie 4 : Présence d'un formulaire de date actif ---
+    # --- Stratégie 4 : Formulaire de date actif ---
     try:
-        date_input = await page.query_selector("input[type='date']:not([disabled]), select[name*='date']:not([disabled])")
+        date_input = await page.query_selector(
+            "input[type='date']:not([disabled]), select[name*='date']:not([disabled])"
+        )
         if date_input and await date_input.is_visible():
-            return True, 1, "Champ de date actif détecté"
+            return True, 1, "Champ de date actif detecte"
     except PWError:
         pass
 
-    # Cas ambiguë : on ne peut pas déterminer
-    return False, 0, "Statut indéterminé – aucun créneau détecté"
-
-
-async def _fill_appointment_form(page: Page):
-    """
-    Remplit le formulaire de prise de RDV BLS.
-    NOTE : Les sélecteurs CSS doivent être adaptés selon la page réelle.
-    Inspecter la page avec les DevTools pour les IDs exacts.
-    """
-    await _human_pause(page, 1000, 2000)
-
-    # Sélection de la catégorie visa (ex: "Spain")
-    try:
-        category_selector = "select#VisaCategory, select[name='VisaCategory'], select[name='visa_category']"
-        cat_el = await page.query_selector(category_selector)
-        if cat_el:
-            await cat_el.select_option(label=settings.VISA_CATEGORY)
-            logger.debug(f"Catégorie sélectionnée : {settings.VISA_CATEGORY}")
-            await _human_pause(page, 500, 1200)
-    except (PWError, PWTimeout):
-        logger.debug("Sélecteur catégorie non trouvé, on continue")
-
-    # Sélection de la sous-catégorie (ex: "Short Stay")
-    try:
-        subcategory_selector = "select#VisaSubCategory, select[name='VisaSubCategory'], select[name='visa_subcategory']"
-        subcat_el = await page.query_selector(subcategory_selector)
-        if subcat_el:
-            await subcat_el.select_option(label=settings.VISA_SUBCATEGORY)
-            logger.debug(f"Sous-catégorie sélectionnée : {settings.VISA_SUBCATEGORY}")
-            await _human_pause(page, 500, 1200)
-    except (PWError, PWTimeout):
-        logger.debug("Sélecteur sous-catégorie non trouvé, on continue")
-
-    # Clic sur "Submit" ou "Check Availability"
-    try:
-        submit_selectors = [
-            "input[type='submit']",
-            "button[type='submit']",
-            "button:has-text('Submit')",
-            "button:has-text('Check')",
-            "button:has-text('Search')",
-            "#btnSubmit",
-        ]
-        for sel in submit_selectors:
-            btn = await page.query_selector(sel)
-            if btn and await btn.is_visible():
-                await btn.click()
-                logger.debug(f"Bouton submit cliqué : {sel}")
-                await _human_pause(page, 1500, 3000)
-                break
-    except (PWError, PWTimeout):
-        logger.debug("Bouton submit non trouvé")
+    return False, 0, "Statut indetermine — aucun creneau detecte"
 
 
 async def check_appointment(retry: int = 0) -> CheckResult:
@@ -229,45 +201,64 @@ async def check_appointment(retry: int = 0) -> CheckResult:
     start_time = time.monotonic()
     timestamp = datetime.now(timezone.utc)
 
+    # Options proxy si configuré
+    launch_args = [
+        "--no-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-blink-features=AutomationControlled",
+        "--disable-web-security",
+        "--lang=fr-DZ",
+    ]
+
+    proxy_config = None
+    if settings.PROXY_SERVER:
+        proxy_config = {"server": settings.PROXY_SERVER}
+        if settings.PROXY_USERNAME:
+            proxy_config["username"] = settings.PROXY_USERNAME
+            proxy_config["password"] = settings.PROXY_PASSWORD
+        logger.info(f"Utilisation du proxy : {settings.PROXY_SERVER}")
+
     async with async_playwright() as pw:
         browser: Optional[Browser] = None
         context: Optional[BrowserContext] = None
         try:
             browser = await pw.chromium.launch(
                 headless=settings.HEADLESS,
-                args=[
-                    "--no-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--disable-blink-features=AutomationControlled",
-                ],
+                args=launch_args,
+                proxy=proxy_config,
             )
-            context = await browser.new_context(**_build_context_options())
+
+            ctx_options = _build_context_options()
+            if proxy_config:
+                ctx_options["proxy"] = proxy_config
+
+            context = await browser.new_context(**ctx_options)
 
             # Masquer les indicateurs d'automatisation
             await context.add_init_script("""
                 Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+                Object.defineProperty(navigator, 'plugins', { get: () => [1,2,3] });
+                Object.defineProperty(navigator, 'languages', { get: () => ['fr-DZ','fr','ar'] });
                 window.chrome = { runtime: {} };
             """)
 
             page = await context.new_page()
             page.set_default_timeout(settings.BROWSER_TIMEOUT)
 
-            # Navigation avec retry interne
             logger.info(f"Navigation vers {settings.TARGET_URL}")
             await page.goto(settings.TARGET_URL, wait_until="domcontentloaded")
-            await _human_pause(page, 1500, 3000)
+            await _human_pause(1500, 3000)
 
-            # Attente chargement JS
             try:
                 await page.wait_for_load_state("networkidle", timeout=10000)
             except PWTimeout:
-                logger.debug("networkidle timeout – on continue quand même")
+                pass
 
-            # Remplissage du formulaire si nécessaire
-            await _fill_appointment_form(page)
-
-            # Détection disponibilité
             available, slots_count, message = await _detect_availability(page)
+
+            # Si geo-bloqué et qu'un proxy est configuré → signaler clairement
+            if "GEO_BLOCKED" in message and settings.PROXY_SERVER:
+                message = "GEO_BLOCKED: Proxy configuré mais toujours bloqué — vérifiez votre proxy"
 
             duration_ms = (time.monotonic() - start_time) * 1000
             return CheckResult(
@@ -282,32 +273,24 @@ async def check_appointment(retry: int = 0) -> CheckResult:
             logger.warning(f"Timeout Playwright : {e}")
             if retry < settings.MAX_RETRIES:
                 backoff = settings.RETRY_BACKOFF_BASE ** retry + random.uniform(0, 1)
-                logger.info(f"Retry {retry + 1}/{settings.MAX_RETRIES} dans {backoff:.1f}s")
                 await asyncio.sleep(backoff)
                 return await check_appointment(retry + 1)
             return CheckResult(
-                timestamp=timestamp,
-                available=False,
-                slots_count=0,
-                message="Timeout – page inaccessible",
-                error=str(e),
-                duration_ms=(time.monotonic() - start_time) * 1000,
+                timestamp=timestamp, available=False, slots_count=0,
+                message="Timeout — page inaccessible",
+                error=str(e), duration_ms=(time.monotonic() - start_time) * 1000,
             )
 
         except Exception as e:
             logger.error(f"Erreur scraper : {e}")
             if retry < settings.MAX_RETRIES:
                 backoff = settings.RETRY_BACKOFF_BASE ** (retry + 1) + random.uniform(0, 2)
-                logger.info(f"Retry {retry + 1}/{settings.MAX_RETRIES} dans {backoff:.1f}s")
                 await asyncio.sleep(backoff)
                 return await check_appointment(retry + 1)
             return CheckResult(
-                timestamp=timestamp,
-                available=False,
-                slots_count=0,
-                message=f"Erreur inattendue",
-                error=str(e),
-                duration_ms=(time.monotonic() - start_time) * 1000,
+                timestamp=timestamp, available=False, slots_count=0,
+                message="Erreur inattendue",
+                error=str(e), duration_ms=(time.monotonic() - start_time) * 1000,
             )
 
         finally:

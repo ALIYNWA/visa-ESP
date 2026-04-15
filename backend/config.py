@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     HEADLESS: bool = True
     BROWSER_TIMEOUT: int = 30000  # ms
 
+    # --- Proxy (optionnel — pour accès depuis serveur hors Algérie) ---
+    # Format: http://ip:port  ou  http://user:pass@ip:port
+    PROXY_SERVER: str = ""
+    PROXY_USERNAME: str = ""
+    PROXY_PASSWORD: str = ""
+
     # --- Email (SMTP) ---
     ENABLE_EMAIL: bool = False
     SMTP_HOST: str = "smtp.gmail.com"

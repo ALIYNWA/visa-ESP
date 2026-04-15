@@ -162,7 +162,18 @@ function updateStatus(status) {
   card.className = "card status-card";
 
   const bookBtn = $("book-btn");
-  if (status === true) {
+  // Vérifier si le dernier message indique un blocage géo
+  const lastMsg = historyData[0]?.message || "";
+  const isGeoBlocked = lastMsg.includes("GEO_BLOCKED");
+
+  if (isGeoBlocked) {
+    card.classList.add("unavailable");
+    icon.textContent = "🚫";
+    label.textContent = "ACCÈS BLOQUÉ";
+    label.className = "status-label unavailable";
+    sub.textContent = "Site inaccessible depuis votre région — désactivez votre VPN";
+    if (bookBtn) bookBtn.style.display = "none";
+  } else if (status === true) {
     card.classList.add("available");
     icon.textContent = "✅";
     label.textContent = "DISPONIBLE";
