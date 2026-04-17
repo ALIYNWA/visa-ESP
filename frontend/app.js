@@ -1,6 +1,6 @@
 /**
  * VisaMonitor Dual – Dashboard JavaScript
- * Double monitor : Espagne (BLS) + France (TLS Contact)
+ * Double monitor : Espagne (BLS) + France (Capago)
  * WebSocket temps réel + REST API
  */
 
