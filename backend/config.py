@@ -11,8 +11,8 @@ class Settings(BaseSettings):
     VISA_CATEGORY: str = "Spain"
     VISA_SUBCATEGORY: str = "Short Stay"
 
-    # --- Monitoring France (TLS Contact) ---
-    FRANCE_TARGET_URL: str = "https://fr.tlscontact.com/appointment/dz/dzALG2fr/"
+    # --- Monitoring France (Capago – depuis mars 2025) ---
+    FRANCE_TARGET_URL: str = "https://fr-dz.capago.eu/rendezvous/"
     FRANCE_VISA_CATEGORY: str = "France"
     FRANCE_VISA_SUBCATEGORY: str = "Court séjour"
 

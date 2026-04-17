@@ -73,13 +73,15 @@ NO_SLOT_PATTERNS = [
     "no appointments available",
     "there are no",
     "fully booked",
-    # TLS Contact spécifique
+    # Capago spécifique (France – Algérie, depuis mars 2025)
     "aucun creneau n'est disponible",
+    "aucun rendez-vous disponible",
+    "il n'y a pas de creneau",
     "les rendez-vous ne sont pas disponibles",
     "no appointment slots available",
-    "appointment not available for this location",
-    "il n'y a pas de creneaux",
     "temporarily unavailable",
+    "complet",
+    "guichet complet",
 ]
 
 # ------------------------------------------------------------------
@@ -98,13 +100,15 @@ AVAILABLE_PATTERNS = [
     "sélectionnez une date",
     "book appointment",
     "calendar",
-    # TLS Contact spécifique
+    # Capago spécifique (France – Algérie)
     "choisissez une date",
-    "selectionnez votre creneau",
+    "choisir un creneau",
     "prenez rendez-vous",
     "creneaux disponibles",
-    "choisir un creneau",
+    "selectionner un creneau",
     "disponibilites",
+    "prendre rendez-vous",
+    "choisissez votre creneau",
 ]
 
 

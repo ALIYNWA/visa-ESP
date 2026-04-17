@@ -619,5 +619,5 @@ document.addEventListener("DOMContentLoaded", () => {
 
   connectWS();
   loadNotifSettings();
-  appendLog("Dashboard VisaMonitor Dual chargé — Espagne + France", "info", "sys");
+  appendLog("Dashboard VisaMonitor Dual chargé — BLS Spain + Capago France", "info", "sys");
 });
