@@ -6,10 +6,16 @@ from typing import Optional
 
 
 class Settings(BaseSettings):
-    # --- Monitoring ---
+    # --- Monitoring Espagne (BLS) ---
     TARGET_URL: str = "https://algeria.blsspainglobal.com/DZA/account/login"
     VISA_CATEGORY: str = "Spain"
     VISA_SUBCATEGORY: str = "Short Stay"
+
+    # --- Monitoring France (TLS Contact) ---
+    FRANCE_TARGET_URL: str = "https://fr.tlscontact.com/appointment/dz/dzALG2fr/"
+    FRANCE_VISA_CATEGORY: str = "France"
+    FRANCE_VISA_SUBCATEGORY: str = "Court séjour"
+
     CHECK_INTERVAL_MIN: int = 30   # secondes
     CHECK_INTERVAL_MAX: int = 90   # secondes
     MAX_RETRIES: int = 3
@@ -20,7 +26,6 @@ class Settings(BaseSettings):
     BROWSER_TIMEOUT: int = 30000  # ms
 
     # --- Proxy (optionnel — pour accès depuis serveur hors Algérie) ---
-    # Format: http://ip:port  ou  http://user:pass@ip:port
     PROXY_SERVER: str = ""
     PROXY_USERNAME: str = ""
     PROXY_PASSWORD: str = ""
@@ -37,16 +42,16 @@ class Settings(BaseSettings):
     ENABLE_SMS: bool = False
     TWILIO_ACCOUNT_SID: str = ""
     TWILIO_AUTH_TOKEN: str = ""
-    TWILIO_PHONE_FROM: str = ""   # ex: +15551234567
-    NOTIFY_PHONE: str = ""        # ex: +213XXXXXXXXX
+    TWILIO_PHONE_FROM: str = ""
+    NOTIFY_PHONE: str = ""
 
     # --- Twilio WhatsApp ---
     ENABLE_WHATSAPP: bool = False
-    TWILIO_WHATSAPP_FROM: str = "whatsapp:+14155238886"  # sandbox Twilio
-    NOTIFY_WHATSAPP: str = ""     # ex: whatsapp:+213XXXXXXXXX
+    TWILIO_WHATSAPP_FROM: str = "whatsapp:+14155238886"
+    NOTIFY_WHATSAPP: str = ""
 
     # --- Alertes ---
-    ALERT_COOLDOWN_MINUTES: int = 15  # délai min entre deux alertes
+    ALERT_COOLDOWN_MINUTES: int = 15
 
     # --- Serveur ---
     HOST: str = "0.0.0.0"

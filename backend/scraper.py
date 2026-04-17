@@ -5,6 +5,7 @@ Scraper éthique avec Playwright
 - Retry avec backoff exponentiel
 - Détection multi-stratégies de disponibilité
 - Gestion blocage géographique + proxy optionnel
+- Support double moniteur (Espagne + France)
 """
 import asyncio
 import random
@@ -28,7 +29,7 @@ from models import CheckResult
 logger = logging.getLogger(__name__)
 
 # ------------------------------------------------------------------
-# Rotation de User-Agents (navigateurs réels récents)
+# Rotation de User-Agents
 # ------------------------------------------------------------------
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
@@ -39,7 +40,7 @@ USER_AGENTS = [
 ]
 
 # ------------------------------------------------------------------
-# Patterns de BLOCAGE GEO / Access Denied
+# Patterns BLOCAGE GEO
 # ------------------------------------------------------------------
 GEO_BLOCK_PATTERNS = [
     "access denied",
@@ -49,14 +50,13 @@ GEO_BLOCK_PATTERNS = [
     "restricted due to",
     "outside the permitted country",
     "supported region",
-    "forbidden",
     "403 forbidden",
     "cloudflare",
     "ray id",
 ]
 
 # ------------------------------------------------------------------
-# Patterns indiquant l'ABSENCE de créneaux
+# Patterns ABSENCE de créneaux (communs + TLS Contact)
 # ------------------------------------------------------------------
 NO_SLOT_PATTERNS = [
     "no appointment",
@@ -72,12 +72,18 @@ NO_SLOT_PATTERNS = [
     "slots not available",
     "no appointments available",
     "there are no",
-    "booked",
     "fully booked",
+    # TLS Contact spécifique
+    "aucun creneau n'est disponible",
+    "les rendez-vous ne sont pas disponibles",
+    "no appointment slots available",
+    "appointment not available for this location",
+    "il n'y a pas de creneaux",
+    "temporarily unavailable",
 ]
 
 # ------------------------------------------------------------------
-# Patterns indiquant la DISPONIBILITÉ
+# Patterns DISPONIBILITÉ (communs + TLS Contact + BLS)
 # ------------------------------------------------------------------
 AVAILABLE_PATTERNS = [
     "select date",
@@ -88,11 +94,17 @@ AVAILABLE_PATTERNS = [
     "slot available",
     "appointment available",
     "rendez-vous disponible",
-    "sélectionner une date",
     "selectionner une date",
+    "sélectionnez une date",
     "book appointment",
-    "schedule",
     "calendar",
+    # TLS Contact spécifique
+    "choisissez une date",
+    "selectionnez votre creneau",
+    "prenez rendez-vous",
+    "creneaux disponibles",
+    "choisir un creneau",
+    "disponibilites",
 ]
 
 
@@ -130,19 +142,34 @@ def _is_geo_blocked(page_text: str) -> bool:
     return any(p in t for p in GEO_BLOCK_PATTERNS)
 
 
-async def _detect_availability(page: Page) -> Tuple[bool, int, str]:
+def _extract_page_excerpt(page_text: str, max_chars: int = 600) -> str:
+    """Extrait un résumé lisible du texte de la page."""
+    # Nettoyer les espaces multiples et sauts de ligne
+    lines = [l.strip() for l in page_text.splitlines() if l.strip()]
+    # Filtrer les lignes trop courtes (menus, boutons isolés)
+    meaningful = [l for l in lines if len(l) > 15]
+    combined = " · ".join(meaningful[:20])
+    if len(combined) > max_chars:
+        combined = combined[:max_chars] + "..."
+    return combined
+
+
+async def _detect_availability(page: Page) -> Tuple[bool, int, str, str]:
     """
     Détecte la disponibilité via plusieurs stratégies.
-    Retourne: (available, slots_count, message)
+    Retourne: (available, slots_count, message, page_excerpt)
     """
     try:
-        page_text = (await page.inner_text("body")).lower().strip()
+        page_text = (await page.inner_text("body")).strip()
     except Exception:
-        page_text = (await page.content()).lower()
+        page_text = await page.content()
+
+    page_excerpt = _extract_page_excerpt(page_text)
+    page_text_lower = page_text.lower()
 
     # --- Détection blocage géographique EN PREMIER ---
-    if _is_geo_blocked(page_text):
-        return False, 0, "GEO_BLOCKED: Accès refusé depuis cette région — désactivez votre VPN"
+    if _is_geo_blocked(page_text_lower):
+        return False, 0, "GEO_BLOCKED: Accès refusé depuis cette région", page_excerpt
 
     # --- Stratégie 1 : Sélecteurs CSS calendrier ---
     slot_selectors = [
@@ -155,6 +182,9 @@ async def _detect_availability(page: Page) -> Tuple[bool, int, str]:
         "td.available",
         ".fc-day:not(.fc-day-disabled)",
         "[data-date]:not(.disabled)",
+        # TLS Contact spécifique
+        ".tls-slot:not(.disabled)",
+        ".appointment-slot.available",
     ]
     slots_found = 0
     for selector in slot_selectors:
@@ -167,41 +197,50 @@ async def _detect_availability(page: Page) -> Tuple[bool, int, str]:
         except PWError:
             continue
 
-    # --- Stratégie 2 : Patterns textuels ---
+    # --- Stratégie 2 : Patterns textuels d'absence ---
     for pattern in NO_SLOT_PATTERNS:
-        if pattern in page_text:
-            return False, 0, f"Aucun creneau — '{pattern}' detecte"
+        if pattern in page_text_lower:
+            return False, 0, f"Aucun creneau — '{pattern}' detecte", page_excerpt
 
+    # --- Stratégie 3 : Patterns textuels de disponibilité ---
     for pattern in AVAILABLE_PATTERNS:
-        if pattern in page_text:
-            return True, max(slots_found, 1), f"Disponibilite detectee : '{pattern}'"
+        if pattern in page_text_lower:
+            return True, max(slots_found, 1), f"Disponibilite detectee : '{pattern}'", page_excerpt
 
-    # --- Stratégie 3 : Créneaux CSS ---
+    # --- Stratégie 4 : Créneaux CSS ---
     if slots_found > 0:
-        return True, slots_found, f"{slots_found} creneau(x) trouve(s) dans le calendrier"
+        return True, slots_found, f"{slots_found} creneau(x) trouve(s) dans le calendrier", page_excerpt
 
-    # --- Stratégie 4 : Formulaire de date actif ---
+    # --- Stratégie 5 : Formulaire de date actif ---
     try:
         date_input = await page.query_selector(
             "input[type='date']:not([disabled]), select[name*='date']:not([disabled])"
         )
         if date_input and await date_input.is_visible():
-            return True, 1, "Champ de date actif detecte"
+            return True, 1, "Champ de date actif detecte", page_excerpt
     except PWError:
         pass
 
-    return False, 0, "Statut indetermine — aucun creneau detecte"
+    return False, 0, "Statut indetermine — aucun creneau detecte", page_excerpt
 
 
-async def check_appointment(retry: int = 0) -> CheckResult:
+async def check_appointment(
+    monitor_id: str = "spain",
+    target_url: str = None,
+    retry: int = 0
+) -> CheckResult:
     """
     Effectue une vérification de disponibilité.
-    Retry avec backoff exponentiel en cas d'erreur.
+    Paramètres:
+        monitor_id: "spain" ou "france"
+        target_url: URL à vérifier (si None, utilise settings.TARGET_URL pour spain)
     """
+    if target_url is None:
+        target_url = settings.TARGET_URL
+
     start_time = time.monotonic()
     timestamp = datetime.now(timezone.utc)
 
-    # Options proxy si configuré
     launch_args = [
         "--no-sandbox",
         "--disable-dev-shm-usage",
@@ -216,7 +255,7 @@ async def check_appointment(retry: int = 0) -> CheckResult:
         if settings.PROXY_USERNAME:
             proxy_config["username"] = settings.PROXY_USERNAME
             proxy_config["password"] = settings.PROXY_PASSWORD
-        logger.info(f"Utilisation du proxy : {settings.PROXY_SERVER}")
+        logger.info(f"[{monitor_id}] Utilisation du proxy : {settings.PROXY_SERVER}")
 
     async with async_playwright() as pw:
         browser: Optional[Browser] = None
@@ -245,8 +284,8 @@ async def check_appointment(retry: int = 0) -> CheckResult:
             page = await context.new_page()
             page.set_default_timeout(settings.BROWSER_TIMEOUT)
 
-            logger.info(f"Navigation vers {settings.TARGET_URL}")
-            await page.goto(settings.TARGET_URL, wait_until="domcontentloaded")
+            logger.info(f"[{monitor_id}] Navigation vers {target_url}")
+            await page.goto(target_url, wait_until="domcontentloaded")
             await _human_pause(1500, 3000)
 
             try:
@@ -254,40 +293,43 @@ async def check_appointment(retry: int = 0) -> CheckResult:
             except PWTimeout:
                 pass
 
-            available, slots_count, message = await _detect_availability(page)
+            available, slots_count, message, page_excerpt = await _detect_availability(page)
 
-            # Si geo-bloqué et qu'un proxy est configuré → signaler clairement
             if "GEO_BLOCKED" in message and settings.PROXY_SERVER:
                 message = "GEO_BLOCKED: Proxy configuré mais toujours bloqué — vérifiez votre proxy"
 
             duration_ms = (time.monotonic() - start_time) * 1000
             return CheckResult(
+                monitor_id=monitor_id,
                 timestamp=timestamp,
                 available=available,
                 slots_count=slots_count,
                 message=message,
                 duration_ms=round(duration_ms, 1),
+                page_excerpt=page_excerpt,
             )
 
         except PWTimeout as e:
-            logger.warning(f"Timeout Playwright : {e}")
+            logger.warning(f"[{monitor_id}] Timeout Playwright : {e}")
             if retry < settings.MAX_RETRIES:
                 backoff = settings.RETRY_BACKOFF_BASE ** retry + random.uniform(0, 1)
                 await asyncio.sleep(backoff)
-                return await check_appointment(retry + 1)
+                return await check_appointment(monitor_id, target_url, retry + 1)
             return CheckResult(
+                monitor_id=monitor_id,
                 timestamp=timestamp, available=False, slots_count=0,
                 message="Timeout — page inaccessible",
                 error=str(e), duration_ms=(time.monotonic() - start_time) * 1000,
             )
 
         except Exception as e:
-            logger.error(f"Erreur scraper : {e}")
+            logger.error(f"[{monitor_id}] Erreur scraper : {e}")
             if retry < settings.MAX_RETRIES:
                 backoff = settings.RETRY_BACKOFF_BASE ** (retry + 1) + random.uniform(0, 2)
                 await asyncio.sleep(backoff)
-                return await check_appointment(retry + 1)
+                return await check_appointment(monitor_id, target_url, retry + 1)
             return CheckResult(
+                monitor_id=monitor_id,
                 timestamp=timestamp, available=False, slots_count=0,
                 message="Erreur inattendue",
                 error=str(e), duration_ms=(time.monotonic() - start_time) * 1000,

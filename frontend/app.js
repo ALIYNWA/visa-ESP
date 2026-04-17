@@ -1,66 +1,58 @@
 /**
- * VisaMonitor – Dashboard JavaScript
+ * VisaMonitor Dual – Dashboard JavaScript
+ * Double monitor : Espagne (BLS) + France (TLS Contact)
  * WebSocket temps réel + REST API
  */
 
-// Si la page est servie depuis le port 8000 (FastAPI), on reste sur la même origine.
-// Sinon (ex: preview statique sur autre port), on pointe explicitement vers le backend.
 const BACKEND_PORT = 8000;
 const BACKEND_HOST = `${location.hostname}:${BACKEND_PORT}`;
 const IS_BACKEND_ORIGIN = location.port === String(BACKEND_PORT);
 const API = IS_BACKEND_ORIGIN ? "" : `http://${BACKEND_HOST}`;
 const WS_URL = `ws://${BACKEND_HOST}/ws`;
-const MAX_LOG_ENTRIES = 150;
+
+const MAX_LOG_ENTRIES  = 200;
 const MAX_HISTORY_ROWS = 100;
 
 // ----------------------------------------------------------------
-// State
+// State par monitor
 // ----------------------------------------------------------------
-let ws = null;
-let wsConnected = false;
-let countdownInterval = null;
-let nextCheckAt = null;
-let totalInterval = null;
-let historyData = [];
+const state = {
+  spain:  { history: [], countdown: { interval: null, nextAt: null, total: null } },
+  france: { history: [], countdown: { interval: null, nextAt: null, total: null } },
+};
 
 // ----------------------------------------------------------------
 // DOM helpers
 // ----------------------------------------------------------------
 const $ = id => document.getElementById(id);
-const fmt = d => d ? new Date(d + (d.endsWith("Z") ? "" : "Z")).toLocaleTimeString("fr-FR") : "–";
-const fmtFull = d => d ? new Date(d + (d.endsWith("Z") ? "" : "Z")).toLocaleString("fr-FR") : "–";
+const fmt     = d => d ? new Date(d.endsWith("Z") ? d : d+"Z").toLocaleTimeString("fr-FR") : "–";
+const fmtFull = d => d ? new Date(d.endsWith("Z") ? d : d+"Z").toLocaleString("fr-FR") : "–";
+const escHtml = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 
 // ----------------------------------------------------------------
 // WebSocket
 // ----------------------------------------------------------------
-function connectWS() {
-  if (ws) { ws.close(); }
+let ws = null;
 
+function connectWS() {
+  if (ws) ws.close();
   ws = new WebSocket(WS_URL);
 
   ws.onopen = () => {
-    wsConnected = true;
     updateWsBadge(true);
-    appendLog("Connexion WebSocket établie", "info");
+    appendLog("Connexion WebSocket établie", "info", "sys");
   };
 
   ws.onmessage = ({ data }) => {
-    try {
-      const msg = JSON.parse(data);
-      handleMessage(msg);
-    } catch (e) {
-      console.error("WS parse error", e);
-    }
+    try { handleMessage(JSON.parse(data)); }
+    catch (e) { console.error("WS parse error", e); }
   };
 
-  ws.onerror = () => {
-    appendLog("Erreur WebSocket", "error");
-  };
+  ws.onerror = () => appendLog("Erreur WebSocket", "error", "sys");
 
   ws.onclose = () => {
-    wsConnected = false;
     updateWsBadge(false);
-    appendLog("WebSocket déconnecté – reconnexion dans 5s...", "warn");
+    appendLog("WebSocket déconnecté – reconnexion dans 5s...", "warn", "sys");
     setTimeout(connectWS, 5000);
   };
 
@@ -70,31 +62,47 @@ function connectWS() {
   }, 25000);
 }
 
+// ----------------------------------------------------------------
+// Dispatch messages
+// ----------------------------------------------------------------
 function handleMessage(msg) {
   switch (msg.type) {
+
     case "initial_state":
-      applyFullState(msg.data);
+      // data = { spain: MonitorStatus, france: MonitorStatus }
+      ["spain", "france"].forEach(mid => {
+        if (msg.data[mid]) applyMonitorState(mid, msg.data[mid]);
+      });
       break;
 
-    case "check_result":
-      updateFromCheckResult(msg.data);
+    case "check_result": {
+      const mid = msg.data.monitor_id || "spain";
+      onCheckResult(mid, msg.data);
       break;
+    }
 
-    case "status_update":
+    case "status_update": {
+      const mid = msg.data.monitor_id || "spain";
       if (msg.data.next_check_in_seconds !== undefined) {
-        startCountdown(msg.data.next_check_in_seconds);
+        startCountdown(mid, msg.data.next_check_in_seconds);
       }
       break;
+    }
 
-    case "notification":
-      const channels = (msg.data.channels || []).join(", ");
-      appendLog(`Alertes envoyées → ${channels}`, "success");
-      showToast(`Notification envoyée via ${channels} !`, "success");
+    case "notification": {
+      const mid = msg.data.monitor_id || "spain";
+      const ch  = (msg.data.channels || []).join(", ");
+      const flag = mid === "france" ? "🇫🇷" : "🇪🇸";
+      appendLog(`${flag} Alertes envoyées → ${ch}`, "success", mid);
+      showToast(`${flag} Notification via ${ch} !`, "success");
       break;
+    }
 
-    case "log":
-      appendLog(msg.data.message, "info");
+    case "log": {
+      const mid = msg.data.monitor_id || "sys";
+      appendLog(msg.data.message, "info", mid);
       break;
+    }
 
     case "pong":
       break;
@@ -102,211 +110,286 @@ function handleMessage(msg) {
 }
 
 // ----------------------------------------------------------------
-// Affichage état complet (initial_state)
+// Appliquer état initial d'un monitor
 // ----------------------------------------------------------------
-function applyFullState(state) {
-  updateStatus(state.current_status);
-  $("stat-checks").textContent = state.total_checks ?? 0;
-  $("stat-slots").textContent = state.slots_detected ?? 0;
-  $("stat-last").textContent = fmt(state.last_check);
-  $("stat-uptime").textContent = fmt(state.uptime_since);
-  updateControls(state.is_running);
+function applyMonitorState(mid, s) {
+  updateMonitorStatus(mid, s.current_status, null, null);
+  updateControls(mid, s.is_running);
+  $(`stat-checks-${mid}`).textContent = s.total_checks ?? 0;
+  $(`stat-slots-${mid}`).textContent  = s.slots_detected ?? 0;
+  $(`stat-last-${mid}`).textContent   = fmt(s.last_check);
 
-  if (state.history && state.history.length > 0) {
-    historyData = [...state.history].reverse();
-    renderHistoryTable();
-    // Charger les logs passés
-    state.history.slice(-30).forEach(r => {
-      appendLog(formatCheckLog(r), r.available ? "success" : r.error ? "error" : null);
+  if (s.history && s.history.length > 0) {
+    state[mid].history = [...s.history].reverse();
+    renderHistory(mid);
+    s.history.slice(-20).forEach(r => {
+      appendLog(formatCheckLog(r), r.available ? "success" : r.error ? "error" : null, mid);
     });
   }
+
+  // Mise à jour indicateur global "en cours"
+  refreshRunningIndicator();
 }
 
 // ----------------------------------------------------------------
-// Mise à jour d'un résultat de vérification
+// Résultat d'une vérification
 // ----------------------------------------------------------------
-function updateFromCheckResult(data) {
-  updateStatus(data.available);
-  $("stat-checks").textContent = data.check_number ?? parseInt($("stat-checks").textContent || 0) + 1;
-  if (data.slots_count > 0) $("stat-slots").textContent = data.slots_count;
-  $("stat-last").textContent = fmt(data.timestamp);
+function onCheckResult(mid, data) {
+  // Mettre à jour le statut
+  updateMonitorStatus(mid, data.available, data.message, data.page_excerpt);
 
-  appendLog(formatCheckLog(data), data.available ? "success" : data.error ? "error" : null);
+  // Stats
+  const prevChecks = parseInt($(`stat-checks-${mid}`).textContent || "0");
+  $(`stat-checks-${mid}`).textContent = data.check_number ?? prevChecks + 1;
+  if (data.slots_count > 0) {
+    const prev = parseInt($(`stat-slots-${mid}`).textContent || "0");
+    $(`stat-slots-${mid}`).textContent = Math.max(data.slots_count, prev);
+  }
+  $(`stat-last-${mid}`).textContent = fmt(data.timestamp);
 
-  // Ajouter au tableau historique
-  historyData.unshift(data);
-  if (historyData.length > MAX_HISTORY_ROWS) historyData.pop();
-  renderHistoryTable();
+  // Log
+  appendLog(formatCheckLog(data), data.available ? "success" : data.error ? "error" : null, mid);
 
+  // Historique
+  state[mid].history.unshift(data);
+  if (state[mid].history.length > MAX_HISTORY_ROWS) state[mid].history.pop();
+  renderHistory(mid);
+
+  // Toast si disponible
   if (data.available) {
-    showToast("Créneau disponible ! Réservez maintenant.", "success", 8000);
-    pulseStatus();
+    const flag = mid === "france" ? "🇫🇷" : "🇪🇸";
+    showToast(`${flag} Créneau disponible ! Réservez maintenant.`, "success", 10000);
+    pulseCard(mid);
   }
 }
 
 function formatCheckLog(r) {
+  const flag = r.monitor_id === "france" ? "🇫🇷" : "🇪🇸";
   const icon = r.available ? "✓" : r.error ? "✗" : "–";
-  const dur = r.duration_ms ? ` (${Math.round(r.duration_ms)}ms)` : "";
-  return `[#${r.check_number || "?"}] ${icon} ${r.message}${dur}`;
+  const dur  = r.duration_ms ? ` (${Math.round(r.duration_ms)}ms)` : "";
+  return `${flag} [#${r.check_number || "?"}] ${icon} ${r.message}${dur}`;
 }
 
 // ----------------------------------------------------------------
-// Statut visuel
+// Mise à jour visuelle du statut d'un monitor
 // ----------------------------------------------------------------
-function updateStatus(status) {
-  const card = $("status-card");
-  const icon = $("status-icon");
-  const label = $("status-label");
-  const sub = $("status-sub");
+function updateMonitorStatus(mid, status, message, pageExcerpt) {
+  const card    = $(`card-${mid}`);
+  const iconEl  = $(`icon-${mid}`);
+  const badgeEl = $(`badge-${mid}`);
+  const msgEl   = $(`msg-${mid}`);
+  const statusDiv = $(`status-${mid}`);
 
-  card.className = "card status-card";
-
-  const bookBtn = $("book-btn");
-  // Vérifier si le dernier message indique un blocage géo
-  const lastMsg = historyData[0]?.message || "";
+  // Déterminer l'état
+  const lastMsg = message || state[mid].history[0]?.message || "";
   const isGeoBlocked = lastMsg.includes("GEO_BLOCKED");
 
+  // Reset classes
+  card.className = "monitor-card";
+  statusDiv.className = "monitor-status";
+
   if (isGeoBlocked) {
-    card.classList.add("unavailable");
-    icon.textContent = "🚫";
-    label.textContent = "ACCÈS BLOQUÉ";
-    label.className = "status-label unavailable";
-    sub.textContent = "Site inaccessible depuis votre région — désactivez votre VPN";
-    if (bookBtn) bookBtn.style.display = "none";
+    card.classList.add("geo-blocked");
+    statusDiv.classList.add("geo-blocked");
+    iconEl.textContent       = "🚫";
+    badgeEl.textContent      = "ACCÈS BLOQUÉ";
+    badgeEl.className        = "status-badge geo-blocked";
+    msgEl.textContent        = "Site inaccessible depuis votre région — désactivez le VPN";
   } else if (status === true) {
     card.classList.add("available");
-    icon.textContent = "✅";
-    label.textContent = "DISPONIBLE";
-    label.className = "status-label available";
-    sub.textContent = "Des créneaux sont disponibles – Réservez maintenant !";
-    if (bookBtn) bookBtn.style.display = "inline-block";
+    statusDiv.classList.add("available");
+    iconEl.textContent       = "✅";
+    badgeEl.textContent      = "DISPONIBLE";
+    badgeEl.className        = "status-badge available";
+    msgEl.textContent        = message || "Des créneaux sont disponibles !";
+    // Faire briller le bouton de réservation
+    $(`book-${mid}`).classList.add("available-glow");
   } else if (status === false) {
-    card.classList.add("unavailable");
-    icon.textContent = "⏳";
-    label.textContent = "INDISPONIBLE";
-    label.className = "status-label unavailable";
-    sub.textContent = "Aucun créneau disponible pour le moment";
-    if (bookBtn) bookBtn.style.display = "none";
+    iconEl.textContent       = "⏳";
+    badgeEl.textContent      = "INDISPONIBLE";
+    badgeEl.className        = "status-badge unavailable";
+    msgEl.textContent        = message || "Aucun créneau disponible";
+    $(`book-${mid}`).classList.remove("available-glow");
   } else {
-    card.classList.add("unknown");
-    icon.textContent = "🔍";
-    label.textContent = "EN ATTENTE";
-    label.className = "status-label unknown";
-    sub.textContent = "Démarrez le monitoring pour vérifier";
-    if (bookBtn) bookBtn.style.display = "none";
+    iconEl.textContent       = "🔍";
+    badgeEl.textContent      = "EN ATTENTE";
+    badgeEl.className        = "status-badge unknown";
+    msgEl.textContent        = "Démarrez le monitoring pour vérifier";
+    $(`book-${mid}`).classList.remove("available-glow");
+  }
+
+  // Aperçu page (ce que voit le moniteur)
+  const previewDiv  = $(`preview-${mid}`);
+  const previewText = $(`preview-text-${mid}`);
+  const excerpt = pageExcerpt || state[mid].history[0]?.page_excerpt || "";
+
+  if (excerpt && status !== null) {
+    previewDiv.style.display = "block";
+    previewText.textContent  = excerpt;
+  } else {
+    previewDiv.style.display = "none";
   }
 }
 
-function pulseStatus() {
-  const card = $("status-card");
-  card.style.boxShadow = "0 0 40px rgba(16,185,129,0.6)";
-  setTimeout(() => { card.style.boxShadow = ""; }, 3000);
+function pulseCard(mid) {
+  const card = $(`card-${mid}`);
+  card.style.boxShadow = "0 0 48px rgba(16,185,129,0.7)";
+  setTimeout(() => { card.style.boxShadow = ""; }, 4000);
 }
 
 // ----------------------------------------------------------------
-// Countdown
+// Countdown par monitor
 // ----------------------------------------------------------------
-function startCountdown(seconds) {
-  clearInterval(countdownInterval);
-  nextCheckAt = Date.now() + seconds * 1000;
-  totalInterval = seconds;
-  $("countdown-wrap").style.display = "flex";
-  updateCountdown();
-  countdownInterval = setInterval(updateCountdown, 1000);
+function startCountdown(mid, seconds) {
+  const cd = state[mid].countdown;
+  clearInterval(cd.interval);
+  cd.nextAt = Date.now() + seconds * 1000;
+  cd.total  = seconds;
+  updateCountdown(mid);
+  cd.interval = setInterval(() => updateCountdown(mid), 1000);
 }
 
-function updateCountdown() {
-  const remaining = Math.max(0, Math.round((nextCheckAt - Date.now()) / 1000));
-  $("countdown-timer").textContent = `${remaining}s`;
-  const pct = totalInterval > 0 ? ((totalInterval - remaining) / totalInterval * 100) : 0;
-  $("countdown-bar").style.width = `${pct}%`;
-  if (remaining === 0) clearInterval(countdownInterval);
+function updateCountdown(mid) {
+  const cd = state[mid].countdown;
+  const remaining = Math.max(0, Math.round((cd.nextAt - Date.now()) / 1000));
+  $(`cd-timer-${mid}`).textContent = `${remaining}s`;
+  const pct = cd.total > 0 ? ((cd.total - remaining) / cd.total * 100) : 0;
+  $(`cd-bar-${mid}`).style.width = `${pct}%`;
+  if (remaining === 0) clearInterval(cd.interval);
 }
 
 // ----------------------------------------------------------------
 // Historique
 // ----------------------------------------------------------------
-function renderHistoryTable() {
-  const tbody = $("history-tbody");
-  tbody.innerHTML = historyData.slice(0, MAX_HISTORY_ROWS).map(r => {
-    const badgeCls = r.error ? "err" : r.available ? "ok" : "nok";
-    const badgeTxt = r.error ? "ERREUR" : r.available ? "OK" : "NON";
+function renderHistory(mid) {
+  const tbody = $(`history-tbody-${mid}`);
+  tbody.innerHTML = state[mid].history.slice(0, MAX_HISTORY_ROWS).map(r => {
+    const cls = r.error ? "err" : r.available ? "ok" : "nok";
+    const txt = r.error ? "ERREUR" : r.available ? "OK" : "NON";
     const dur = r.duration_ms ? `${Math.round(r.duration_ms)}ms` : "–";
     return `
       <tr>
         <td>${fmtFull(r.timestamp)}</td>
-        <td><span class="badge ${badgeCls}">${badgeTxt}</span></td>
+        <td><span class="badge ${cls}">${txt}</span></td>
         <td>${r.slots_count ?? 0}</td>
-        <td>${escHtml(r.message)}</td>
+        <td style="max-width:260px;word-break:break-word;">${escHtml(r.message)}</td>
         <td>${dur}</td>
-      </tr>
-    `;
-  }).join("");
+      </tr>`;
+  }).join("") || `<tr><td colspan="5" style="text-align:center;color:#475569;padding:16px;">Aucune donnée</td></tr>`;
 }
 
 // ----------------------------------------------------------------
-// Log console
+// Log unifié (avec tag pays)
 // ----------------------------------------------------------------
-function appendLog(message, type = null) {
+function appendLog(message, type = null, monitorId = "sys") {
   const container = $("log-container");
-  const now = new Date().toLocaleTimeString("fr-FR");
-  const div = document.createElement("div");
+  const now  = new Date().toLocaleTimeString("fr-FR");
+  const div  = document.createElement("div");
   div.className = "log-entry";
-  const cls = type ? `log-msg ${type}` : "log-msg";
-  div.innerHTML = `<span class="log-time">${now}</span><span class="${cls}">${escHtml(message)}</span>`;
+
+  const tagLabel = monitorId === "spain" ? "ESP" : monitorId === "france" ? "FRA" : "SYS";
+  const tagClass = monitorId === "spain" ? "spain" : monitorId === "france" ? "france" : "sys";
+  const cls      = type ? `log-msg ${type}` : "log-msg";
+
+  div.innerHTML = `
+    <span class="log-time">${now}</span>
+    <span class="log-tag ${tagClass}">${tagLabel}</span>
+    <span class="${cls}">${escHtml(message)}</span>`;
   container.prepend(div);
 
-  // Limiter le nombre d'entrées
-  while (container.children.length > MAX_LOG_ENTRIES) {
-    container.lastChild.remove();
-  }
+  while (container.children.length > MAX_LOG_ENTRIES) container.lastChild.remove();
+}
+
+function clearLog() {
+  $("log-container").innerHTML = "";
+  appendLog("Logs effacés", "info", "sys");
 }
 
 // ----------------------------------------------------------------
 // Contrôles
 // ----------------------------------------------------------------
-function updateControls(running) {
-  $("btn-start").disabled = running;
-  $("btn-stop").disabled = !running;
-  $("running-indicator").style.display = running ? "inline-flex" : "none";
+function updateControls(mid, running) {
+  $(`btn-start-${mid}`).disabled = running;
+  $(`btn-stop-${mid}`).disabled  = !running;
+  const dot = $(`running-${mid}`);
+  if (dot) dot.className = `running-dot ${running ? "active" : ""}`;
 }
 
-async function startMonitor() {
+function refreshRunningIndicator() {
+  const anyRunning = ["spain","france"].some(mid => !$(`btn-start-${mid}`).disabled === false);
+  // Si au moins un tourne
+  const spainRunning  = !$("btn-start-spain").disabled;
+  const franceRunning = !$("btn-start-france").disabled;
+  $("running-indicator").style.display = (spainRunning || franceRunning) ? "inline-flex" : "none";
+}
+
+async function startMonitor(mid) {
   try {
-    const r = await fetch(`${API}/api/start`, { method: "POST" });
+    const r = await fetch(`${API}/api/${mid}/start`, { method: "POST" });
     if (!r.ok) {
       const err = await r.json();
-      showToast(err.detail || "Erreur démarrage", "error");
+      showToast(err.detail || `Erreur démarrage ${mid}`, "error");
       return;
     }
-    appendLog("Monitor démarré", "success");
-    updateControls(true);
-    updateStatus(null);
+    updateControls(mid, true);
+    updateMonitorStatus(mid, null, null, null);
+    appendLog(`Monitor ${mid} démarré`, "success", mid);
+    refreshRunningIndicator();
   } catch (e) {
     showToast("Impossible de joindre l'API", "error");
   }
 }
 
-async function stopMonitor() {
+async function stopMonitor(mid) {
   try {
-    const r = await fetch(`${API}/api/stop`, { method: "POST" });
+    const r = await fetch(`${API}/api/${mid}/stop`, { method: "POST" });
     if (!r.ok) {
       const err = await r.json();
-      showToast(err.detail || "Erreur arrêt", "error");
+      showToast(err.detail || `Erreur arrêt ${mid}`, "error");
       return;
     }
-    appendLog("Monitor arrêté", "warn");
-    updateControls(false);
-    clearInterval(countdownInterval);
-    $("countdown-wrap").style.display = "none";
+    updateControls(mid, false);
+    clearInterval(state[mid].countdown.interval);
+    $(`cd-timer-${mid}`).textContent = "–";
+    $(`cd-bar-${mid}`).style.width = "0%";
+    appendLog(`Monitor ${mid} arrêté`, "warn", mid);
+    refreshRunningIndicator();
   } catch (e) {
     showToast("Impossible de joindre l'API", "error");
   }
 }
 
-function clearLog() {
-  $("log-container").innerHTML = "";
-  appendLog("Logs effacés", "info");
+// ----------------------------------------------------------------
+// Onglets
+// ----------------------------------------------------------------
+function switchTab(tabId) {
+  // Masquer tous les contenus
+  document.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
+  document.querySelectorAll(".tab-btn").forEach(el => el.classList.remove("active"));
+
+  // Afficher le bon
+  $(`tab-${tabId}`).classList.add("active");
+  $(`tab-btn-${tabId}`).classList.add("active");
+}
+
+// ----------------------------------------------------------------
+// Aperçu page – toggle
+// ----------------------------------------------------------------
+function togglePreview(mid) {
+  const body  = $(`preview-text-${mid}`);
+  const arrow = $(`preview-arrow-${mid}`);
+  const collapsed = body.classList.toggle("collapsed");
+  arrow.textContent = collapsed ? "▶" : "▼";
+}
+
+// ----------------------------------------------------------------
+// Sections collapsibles
+// ----------------------------------------------------------------
+function toggleSection(id) {
+  const body  = $(id);
+  const arrow = $(`${id}-arrow`);
+  const hidden = body.classList.toggle("hidden");
+  if (arrow) arrow.textContent = hidden ? "▶" : "▼";
 }
 
 // ----------------------------------------------------------------
@@ -320,118 +403,84 @@ function showToast(message, type = "info", duration = 4000) {
   container.appendChild(toast);
   setTimeout(() => {
     toast.style.transition = "opacity 0.4s";
-    toast.style.opacity = "0";
+    toast.style.opacity    = "0";
     setTimeout(() => toast.remove(), 400);
   }, duration);
 }
 
 // ----------------------------------------------------------------
-// Utils
+// WS badge
 // ----------------------------------------------------------------
-function escHtml(str) {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
 function updateWsBadge(connected) {
   const badge = $("ws-badge");
-  badge.textContent = connected ? "● Connecté" : "○ Déconnecté";
-  badge.className = `ws-badge ${connected ? "connected" : "disconnected"}`;
+  badge.textContent  = connected ? "● Connecté" : "○ Déconnecté";
+  badge.className    = `ws-badge ${connected ? "connected" : "disconnected"}`;
 }
 
 // ----------------------------------------------------------------
 // Notification settings
 // ----------------------------------------------------------------
 const smsNumbers = [];
-const waNumbers = [];
-const tgIds = [];
-
-function toggleSection(id) {
-  const body = $(id);
-  const arrow = $(`${id}-arrow`);
-  const hidden = body.classList.toggle("hidden");
-  if (arrow) arrow.textContent = hidden ? "▶" : "▼";
-}
+const waNumbers  = [];
+const tgIds      = [];
 
 function renderTags(channel) {
-  const arr = channel === "sms" ? smsNumbers : waNumbers;
+  const arr   = channel === "sms" ? smsNumbers : waNumbers;
   const tagId = channel === "sms" ? "sms-tags" : "wa-tags";
   $(tagId).innerHTML = arr.map((n, i) => `
     <span class="number-tag">
       ${escHtml(n)}
-      <button onclick="removeNumber('${channel}', ${i})" title="Supprimer">✕</button>
-    </span>
-  `).join("") || '<span style="color:#475569;font-size:0.78rem;">Aucun numéro ajouté</span>';
+      <button onclick="removeNumber('${channel}', ${i})">✕</button>
+    </span>`).join("") || '<span style="color:#374151;font-size:0.76rem;">Aucun numéro ajouté</span>';
 }
 
 function renderTgTags() {
   $("tg-tags").innerHTML = tgIds.map((id, i) => `
-    <span class="number-tag" style="background:#1e3a5f;border-color:#2563eb;color:#93c5fd;">
+    <span class="number-tag" style="background:#0e1f3a;border-color:#2563eb;color:#93c5fd;">
       ${escHtml(String(id))}
-      <button onclick="removeTgId(${i})" title="Supprimer">✕</button>
-    </span>
-  `).join("") || '<span style="color:#475569;font-size:0.78rem;">Aucun chat ID ajouté</span>';
+      <button onclick="removeTgId(${i})">✕</button>
+    </span>`).join("") || '<span style="color:#374151;font-size:0.76rem;">Aucun chat ID</span>';
 }
 
 function addTgId() {
   const input = $("tg-new-id");
   const raw = input.value.trim();
   if (!raw) return;
-  if (!/^-?\d+$/.test(raw)) {
-    showToast("Chat ID invalide — doit être un nombre (ex: 123456789)", "error");
-    return;
-  }
-  if (tgIds.includes(raw)) { showToast("ID déjà dans la liste", "info"); return; }
+  if (!/^-?\d+$/.test(raw)) { showToast("Chat ID invalide — entrez un nombre", "error"); return; }
+  if (tgIds.includes(raw))  { showToast("ID déjà présent", "info"); return; }
   tgIds.push(raw);
   input.value = "";
   renderTgTags();
 }
 
-function removeTgId(idx) {
-  tgIds.splice(idx, 1);
-  renderTgTags();
-}
+function removeTgId(idx) { tgIds.splice(idx, 1); renderTgTags(); }
 
 function addNumber(channel) {
   const inputId = channel === "sms" ? "sms-new-number" : "wa-new-number";
-  const input = $(inputId);
-  const raw = input.value.trim();
+  const raw = $(inputId).value.trim();
   if (!raw) return;
   const num = raw.startsWith("+") ? raw : "+" + raw;
-  if (!/^\+\d{7,15}$/.test(num)) {
-    showToast("Format invalide. Exemple : +213661234567", "error");
-    return;
-  }
+  if (!/^\+\d{7,15}$/.test(num)) { showToast("Format invalide — ex: +213661234567", "error"); return; }
   const arr = channel === "sms" ? smsNumbers : waNumbers;
-  if (arr.includes(num)) {
-    showToast("Numéro déjà dans la liste", "info");
-    return;
-  }
+  if (arr.includes(num)) { showToast("Numéro déjà dans la liste", "info"); return; }
   arr.push(num);
-  input.value = "";
+  $(inputId).value = "";
   renderTags(channel);
 }
 
 function removeNumber(channel, idx) {
-  const arr = channel === "sms" ? smsNumbers : waNumbers;
-  arr.splice(idx, 1);
+  (channel === "sms" ? smsNumbers : waNumbers).splice(idx, 1);
   renderTags(channel);
 }
 
-// Enter key on number inputs
-function setupNumberInputEnter() {
-  ["sms-new-number", "wa-new-number"].forEach(id => {
+// Enter key
+function setupInputEnter() {
+  [["sms-new-number","sms"],["wa-new-number","wa"]].forEach(([id,ch]) => {
     const el = $(id);
-    if (el) el.addEventListener("keydown", e => {
-      if (e.key === "Enter") { e.preventDefault(); addNumber(id.startsWith("sms") ? "sms" : "wa"); }
-    });
+    if (el) el.addEventListener("keydown", e => { if (e.key==="Enter") { e.preventDefault(); addNumber(ch); } });
   });
   const tgInput = $("tg-new-id");
-  if (tgInput) tgInput.addEventListener("keydown", e => {
-    if (e.key === "Enter") { e.preventDefault(); addTgId(); }
-  });
+  if (tgInput) tgInput.addEventListener("keydown", e => { if (e.key==="Enter") { e.preventDefault(); addTgId(); } });
 }
 
 async function loadNotifSettings() {
@@ -440,72 +489,56 @@ async function loadNotifSettings() {
     if (!r.ok) return;
     const cfg = await r.json();
 
-    // Telegram status
+    // Telegram
     if (cfg.telegram_configured) {
-      $("tg-status").className = "twilio-status ok";
+      $("tg-status").className = "config-status ok";
       $("tg-status-icon").textContent = "✓";
       $("tg-status-text").textContent = "Bot Telegram configuré";
-    } else {
-      $("tg-status").className = "twilio-status nok";
-      $("tg-status-icon").textContent = "✗";
-      $("tg-status-text").textContent = "Bot non configuré";
     }
-
-    // Twilio status
-    if (cfg.twilio_configured) {
-      $("twilio-status").className = "twilio-status ok";
-      $("twilio-status-icon").textContent = "✓";
-      $("twilio-status-text").textContent = "Credentials Twilio configurés";
-    } else {
-      $("twilio-status").className = "twilio-status nok";
-      $("twilio-status-icon").textContent = "✗";
-      $("twilio-status-text").textContent = "Credentials Twilio non configurés (SMS/WhatsApp optionnel)";
-    }
-
-    // Telegram fields
     $("tg-enabled").checked = cfg.telegram_enabled || false;
     if (cfg.telegram_bot_token) $("cfg-tg-token").value = cfg.telegram_bot_token;
     tgIds.length = 0;
     (cfg.telegram_chat_ids || []).forEach(id => tgIds.push(String(id)));
     renderTgTags();
 
-    // Twilio fields
+    // Twilio
+    if (cfg.twilio_configured) {
+      $("twilio-status").className = "config-status ok";
+      $("twilio-status-icon").textContent = "✓";
+      $("twilio-status-text").textContent = "Credentials Twilio configurés";
+    }
     if (cfg.twilio_account_sid) $("cfg-sid").value = cfg.twilio_account_sid;
     if (cfg.twilio_auth_token)  $("cfg-token").value = cfg.twilio_auth_token;
     if (cfg.twilio_phone_from)  $("cfg-from-sms").value = cfg.twilio_phone_from;
     if (cfg.twilio_whatsapp_from) $("cfg-from-wa").value = cfg.twilio_whatsapp_from;
     $("sms-enabled").checked = cfg.sms_enabled || false;
     $("wa-enabled").checked  = cfg.whatsapp_enabled || false;
-    smsNumbers.length = 0;
-    (cfg.sms_numbers || []).forEach(n => smsNumbers.push(n));
-    waNumbers.length = 0;
-    (cfg.whatsapp_numbers || []).forEach(n => waNumbers.push(n));
+    smsNumbers.length = 0; (cfg.sms_numbers || []).forEach(n => smsNumbers.push(n));
+    waNumbers.length  = 0; (cfg.whatsapp_numbers || []).forEach(n => waNumbers.push(n));
     renderTags("sms");
     renderTags("wa");
-  } catch (e) {
-    console.error("loadNotifSettings error:", e);
-  }
+  } catch (e) { console.error("loadNotifSettings:", e); }
 }
 
 async function saveNotifSettings() {
-  const saveBtn = document.querySelector(".btn-save-notif");
+  const saveBtn  = document.querySelector(".btn-save-notif");
   const resultEl = $("save-result");
   saveBtn.disabled = true;
-  resultEl.textContent = "Sauvegarde en cours...";
+  resultEl.textContent = "Sauvegarde...";
   resultEl.style.color = "#94a3b8";
 
   const payload = {
-    telegram_enabled:      $("tg-enabled").checked,
-    telegram_bot_token:    $("cfg-tg-token").value.trim(),
-    telegram_chat_ids:     [...tgIds],
-    twilio_account_sid:    $("cfg-sid").value.trim(),
-    twilio_auth_token:     $("cfg-token").value.trim(),
-    twilio_phone_from:     $("cfg-from-sms").value.trim(),
-    twilio_whatsapp_from:  $("cfg-from-wa").value.trim(),
-    sms_enabled:           $("sms-enabled").checked,
-    sms_numbers:           [...smsNumbers],
-    whatsapp_enabled:      $("wa-enabled").checked,
-    whatsapp_numbers:      [...waNumbers],
+    telegram_enabled:     $("tg-enabled").checked,
+    telegram_bot_token:   $("cfg-tg-token").value.trim(),
+    telegram_chat_ids:    [...tgIds],
+    twilio_account_sid:   $("cfg-sid").value.trim(),
+    twilio_auth_token:    $("cfg-token").value.trim(),
+    twilio_phone_from:    $("cfg-from-sms").value.trim(),
+    twilio_whatsapp_from: $("cfg-from-wa").value.trim(),
+    sms_enabled:          $("sms-enabled").checked,
+    sms_numbers:          [...smsNumbers],
+    whatsapp_enabled:     $("wa-enabled").checked,
+    whatsapp_numbers:     [...waNumbers],
   };
 
   try {
@@ -518,8 +551,8 @@ async function saveNotifSettings() {
     if (r.ok && data.saved) {
       resultEl.textContent = "Configuration sauvegardée !";
       resultEl.style.color = "#10b981";
-      showToast("Configuration notifications sauvegardée", "success");
-      await loadNotifSettings();  // Rafraîchir le statut Twilio
+      showToast("Configuration sauvegardée", "success");
+      await loadNotifSettings();
     } else {
       resultEl.textContent = "Erreur : " + (data.detail || "inconnue");
       resultEl.style.color = "#ef4444";
@@ -529,7 +562,7 @@ async function saveNotifSettings() {
     resultEl.style.color = "#ef4444";
   } finally {
     saveBtn.disabled = false;
-    setTimeout(() => { resultEl.textContent = ""; }, 4000);
+    setTimeout(() => { resultEl.textContent = ""; }, 5000);
   }
 }
 
@@ -537,17 +570,13 @@ async function testNotif(channel, numberOverride) {
   const isTg = channel === "telegram";
   const numInput = isTg ? null : (channel === "sms" ? $("sms-test-number") : $("wa-test-number"));
   const resultEl = isTg ? $("tg-test-result") : (channel === "sms" ? $("sms-test-result") : $("wa-test-result"));
-  const num = numberOverride === "all" ? (tgIds[0] || "") : (numInput ? numInput.value.trim() : "");
+  const num = (numberOverride === "all") ? (tgIds[0] || "") : (numInput ? numInput.value.trim() : "");
 
-  if (isTg && tgIds.length === 0) {
-    showToast("Ajoutez au moins un chat ID avant de tester", "error");
-    return;
-  }
-
+  if (isTg && tgIds.length === 0) { showToast("Ajoutez un chat ID d'abord", "error"); return; }
   if (!num) { showToast("Entrez un numéro pour le test", "error"); return; }
 
   resultEl.className = "test-result";
-  resultEl.textContent = "Envoi en cours...";
+  resultEl.textContent = "Envoi...";
   resultEl.style.display = "block";
   resultEl.style.background = "transparent";
   resultEl.style.color = "#94a3b8";
@@ -565,7 +594,7 @@ async function testNotif(channel, numberOverride) {
       showToast(`Test ${channel.toUpperCase()} envoyé`, "success");
     } else {
       resultEl.className = "test-result err";
-      resultEl.textContent = data.message || (data.detail || "Échec");
+      resultEl.textContent = data.message || data.detail || "Échec";
     }
   } catch (e) {
     resultEl.className = "test-result err";
@@ -577,19 +606,18 @@ async function testNotif(channel, numberOverride) {
 // Init
 // ----------------------------------------------------------------
 document.addEventListener("DOMContentLoaded", () => {
-  updateStatus(null);
-  updateControls(false);
-  $("countdown-wrap").style.display = "none";
-  $("btn-start").addEventListener("click", startMonitor);
-  $("btn-stop").addEventListener("click", stopMonitor);
-  $("btn-clear-log").addEventListener("click", clearLog);
+  // Initialiser l'état vide des deux monitors
+  ["spain", "france"].forEach(mid => {
+    updateMonitorStatus(mid, null, null, null);
+    updateControls(mid, false);
+  });
 
-  setupNumberInputEnter();
+  setupInputEnter();
   renderTgTags();
   renderTags("sms");
   renderTags("wa");
 
   connectWS();
   loadNotifSettings();
-  appendLog("Dashboard VisaMonitor chargé", "info");
+  appendLog("Dashboard VisaMonitor Dual chargé — Espagne + France", "info", "sys");
 });

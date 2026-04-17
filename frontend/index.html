@@ -3,152 +3,210 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VisaMonitor – Rendez-vous Visa Espagne | Alger</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🇪🇸</text></svg>" />
+  <title>VisaMonitor – Espagne &amp; France | Alger</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛂</text></svg>" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-<!-- ============================================================
+<!-- ================================================================
      HEADER
-     ============================================================ -->
+     ================================================================ -->
 <header>
-  <h1>
-    <span class="flag">🇪🇸</span>
-    VisaMonitor
-    <span style="font-weight:400;color:#64748b;font-size:0.9rem;">Visa Espagne – Alger</span>
-  </h1>
-  <div style="display:flex;align-items:center;gap:12px;">
-    <span id="running-indicator" style="display:none;align-items:center;gap:6px;font-size:0.8rem;color:#10b981;">
-      <span style="width:8px;height:8px;background:#10b981;border-radius:50%;display:inline-block;
-                   animation:blink 1s infinite;"></span>
+  <div class="header-brand">
+    <div class="header-flags">🇪🇸🇫🇷</div>
+    <h1>VisaMonitor</h1>
+    <span style="font-size:0.78rem;color:#475569;">Alger · Temps réel</span>
+  </div>
+  <div class="header-right">
+    <span id="running-indicator" style="display:none;align-items:center;gap:5px;font-size:0.72rem;color:#10b981;">
+      <span style="width:7px;height:7px;background:#10b981;border-radius:50%;animation:blink 1s infinite;"></span>
       En cours
     </span>
     <span id="ws-badge" class="ws-badge disconnected">○ Déconnecté</span>
   </div>
 </header>
 
-<style>
-  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
-</style>
-
-<!-- ============================================================
+<!-- ================================================================
      MAIN
-     ============================================================ -->
+     ================================================================ -->
 <main>
 
-  <!-- Statut principal + contrôles -->
-  <div style="display:grid;grid-template-columns:1fr 340px;gap:20px;margin-bottom:20px;">
+  <!-- ── DEUX MONITORS CÔTE À CÔTE ── -->
+  <div class="monitors-grid">
 
-    <!-- Statut hero -->
-    <div id="status-card" class="card status-card unknown">
-      <span id="status-icon" class="status-icon">🔍</span>
-      <div id="status-label" class="status-label unknown">EN ATTENTE</div>
-      <div id="status-sub" class="status-sub">Démarrez le monitoring pour vérifier</div>
-      <a id="book-btn" href="https://algeria.blsspainglobal.com/DZA/account/login"
-         target="_blank" rel="noopener"
-         style="display:none;margin-top:20px;padding:14px 28px;
-                background:#10b981;color:#fff;font-weight:700;font-size:1rem;
-                border-radius:10px;text-decoration:none;
-                box-shadow:0 0 24px rgba(16,185,129,0.5);
-                animation:pulse-icon 1s infinite;">
-        RÉSERVER MAINTENANT →
-      </a>
-    </div>
+    <!-- ============================================================
+         ESPAGNE – BLS Spain Visa
+         ============================================================ -->
+    <div class="monitor-card" id="card-spain">
 
-    <!-- Contrôles + countdown -->
-    <div style="display:flex;flex-direction:column;gap:16px;">
-
-      <div class="card">
-        <div class="card-title">Contrôles</div>
-        <div class="controls">
-          <button id="btn-start" class="btn-start">▶ Démarrer</button>
-          <button id="btn-stop" class="btn-stop" disabled>■ Arrêter</button>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-title">Prochaine vérification</div>
-        <div id="countdown-wrap" class="countdown">
-          <span class="timer" id="countdown-timer">–</span>
-          <div class="progress-bar-wrap">
-            <div class="progress-bar" id="countdown-bar" style="width:0%"></div>
+      <!-- Entête pays -->
+      <div class="monitor-header spain-hdr">
+        <div class="monitor-title-wrap">
+          <span class="monitor-flag">🇪🇸</span>
+          <div>
+            <div class="monitor-name">Visa Espagne</div>
+            <div class="monitor-subtitle">BLS Spain Visa · Alger</div>
           </div>
         </div>
-        <div id="countdown-wrap" style="display:none"></div>
-        <p style="font-size:0.75rem;color:#64748b;margin-top:8px;">
-          Intervalle : 30–90 secondes (aléatoire)
-        </p>
+        <div class="running-dot" id="running-spain">
+          <span></span> En cours
+        </div>
+        <div class="ctrl-mini">
+          <button class="btn-mini start" id="btn-start-spain" onclick="startMonitor('spain')">▶ Démarrer</button>
+          <button class="btn-mini stop"  id="btn-stop-spain"  onclick="stopMonitor('spain')" disabled>■ Stop</button>
+        </div>
       </div>
 
-      <div class="card">
-        <div class="card-title">Lien Rendez-vous</div>
-        <a href="https://algeria.blsspainglobal.com/DZA/account/login"
+      <!-- Statut -->
+      <div class="monitor-status" id="status-spain">
+        <span class="status-icon-big" id="icon-spain">🔍</span>
+        <div class="status-badge unknown" id="badge-spain">EN ATTENTE</div>
+        <div class="status-message" id="msg-spain">Démarrez le monitoring pour vérifier</div>
+      </div>
+
+      <!-- Aperçu page (ce que voit le moniteur) -->
+      <div class="page-preview" id="preview-spain" style="display:none;">
+        <div class="preview-header" onclick="togglePreview('spain')">
+          <span>📋</span>
+          <span>Ce que voit le moniteur</span>
+          <span id="preview-arrow-spain" style="margin-left:auto;">▼</span>
+        </div>
+        <div class="preview-body" id="preview-text-spain"></div>
+      </div>
+
+      <!-- Footer : countdown + lien -->
+      <div class="monitor-footer">
+        <div class="countdown-row">
+          <span class="cd-label">Prochaine vérif.</span>
+          <span class="cd-timer" id="cd-timer-spain">–</span>
+          <div class="cd-bar-wrap">
+            <div class="cd-bar" id="cd-bar-spain"></div>
+          </div>
+        </div>
+        <a class="book-btn spain-link"
+           href="https://algeria.blsspainglobal.com/DZA/account/login"
            target="_blank" rel="noopener"
-           style="display:inline-flex;align-items:center;gap:8px;
-                  background:#1e3a5f;border:1px solid #2563eb;color:#93c5fd;
-                  border-radius:8px;padding:10px 14px;font-size:0.82rem;
-                  font-weight:600;text-decoration:none;width:100%;
-                  transition:background 0.2s;"
-           onmouseover="this.style.background='#1d4ed8'"
-           onmouseout="this.style.background='#1e3a5f'">
-          <span style="font-size:1.1rem;">🔗</span>
-          Réserver sur BLS Spain Visa
+           id="book-spain">
+          🔗 Réserver – BLS Spain Visa
         </a>
-        <p style="font-size:0.75rem;color:#64748b;margin-top:8px;">
-          Catégorie : Spain / Short Stay
-        </p>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         FRANCE – TLS Contact
+         ============================================================ -->
+    <div class="monitor-card" id="card-france">
+
+      <!-- Entête pays -->
+      <div class="monitor-header france-hdr">
+        <div class="monitor-title-wrap">
+          <span class="monitor-flag">🇫🇷</span>
+          <div>
+            <div class="monitor-name">Visa France</div>
+            <div class="monitor-subtitle">TLS Contact · Alger</div>
+          </div>
+        </div>
+        <div class="running-dot" id="running-france">
+          <span></span> En cours
+        </div>
+        <div class="ctrl-mini">
+          <button class="btn-mini start" id="btn-start-france" onclick="startMonitor('france')">▶ Démarrer</button>
+          <button class="btn-mini stop"  id="btn-stop-france"  onclick="stopMonitor('france')" disabled>■ Stop</button>
+        </div>
       </div>
 
+      <!-- Statut -->
+      <div class="monitor-status" id="status-france">
+        <span class="status-icon-big" id="icon-france">🔍</span>
+        <div class="status-badge unknown" id="badge-france">EN ATTENTE</div>
+        <div class="status-message" id="msg-france">Démarrez le monitoring pour vérifier</div>
+      </div>
+
+      <!-- Aperçu page -->
+      <div class="page-preview" id="preview-france" style="display:none;">
+        <div class="preview-header" onclick="togglePreview('france')">
+          <span>📋</span>
+          <span>Ce que voit le moniteur</span>
+          <span id="preview-arrow-france" style="margin-left:auto;">▼</span>
+        </div>
+        <div class="preview-body" id="preview-text-france"></div>
+      </div>
+
+      <!-- Footer : countdown + lien -->
+      <div class="monitor-footer">
+        <div class="countdown-row">
+          <span class="cd-label">Prochaine vérif.</span>
+          <span class="cd-timer" id="cd-timer-france">–</span>
+          <div class="cd-bar-wrap">
+            <div class="cd-bar" id="cd-bar-france"></div>
+          </div>
+        </div>
+        <a class="book-btn france-link"
+           href="https://fr.tlscontact.com/appointment/dz/dzALG2fr/"
+           target="_blank" rel="noopener"
+           id="book-france">
+          🔗 Réserver – TLS Contact France
+        </a>
+      </div>
     </div>
+
+  </div><!-- /monitors-grid -->
+
+  <!-- ── STATS BAR ── -->
+  <div class="stats-bar">
+
+    <div class="stat-card">
+      <div class="stat-label">🇪🇸 Vérifications</div>
+      <div class="stat-value" id="stat-checks-spain">0</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-label">🇫🇷 Vérifications</div>
+      <div class="stat-value" id="stat-checks-france">0</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-label">🇪🇸 Créneaux max</div>
+      <div class="stat-value green" id="stat-slots-spain">0</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-label">🇫🇷 Créneaux max</div>
+      <div class="stat-value green" id="stat-slots-france">0</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-label">Dernière vérif. ESP</div>
+      <div class="stat-value small blue" id="stat-last-spain">–</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-label">Dernière vérif. FRA</div>
+      <div class="stat-value small blue" id="stat-last-france">–</div>
+    </div>
+
   </div>
 
-  <!-- Stats -->
-  <div class="grid grid-stats" style="margin-bottom:20px;">
+  <!-- ── ONGLETS LOGS & HISTORIQUE ── -->
+  <div class="tabs-section">
 
-    <div class="card">
-      <div class="card-title">Vérifications</div>
-      <div class="stat-value" id="stat-checks">0</div>
-      <div class="stat-label">total depuis démarrage</div>
+    <div class="tabs-header">
+      <button class="tab-btn active" id="tab-btn-logs" onclick="switchTab('logs')">📡 Logs en direct</button>
+      <button class="tab-btn spain-tab" id="tab-btn-hist-spain" onclick="switchTab('hist-spain')">🇪🇸 Historique Espagne</button>
+      <button class="tab-btn france-tab" id="tab-btn-hist-france" onclick="switchTab('hist-france')">🇫🇷 Historique France</button>
     </div>
 
-    <div class="card">
-      <div class="card-title">Créneaux détectés</div>
-      <div class="stat-value" style="color:#10b981" id="stat-slots">0</div>
-      <div class="stat-label">maximum observé</div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">Dernière vérif.</div>
-      <div class="stat-value" style="font-size:1.3rem" id="stat-last">–</div>
-      <div class="stat-label">heure locale</div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">Démarré à</div>
-      <div class="stat-value" style="font-size:1.3rem" id="stat-uptime">–</div>
-      <div class="stat-label">heure locale</div>
-    </div>
-
-  </div>
-
-  <!-- Log + Historique -->
-  <div class="grid grid-main">
-
-    <!-- Live log -->
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-        <div class="card-title" style="margin:0">Logs en direct</div>
-        <button id="btn-clear-log" class="btn-secondary" style="font-size:0.75rem;padding:5px 12px;">
-          Effacer
-        </button>
+    <!-- Logs -->
+    <div class="tab-content active" id="tab-logs">
+      <div class="tab-actions">
+        <button class="btn-secondary" onclick="clearLog()">Effacer</button>
       </div>
       <div id="log-container" class="log-wrap"></div>
     </div>
 
-    <!-- Historique -->
-    <div class="card">
-      <div class="card-title">Historique des vérifications</div>
+    <!-- Historique Espagne -->
+    <div class="tab-content" id="tab-hist-spain">
       <div class="history-wrap">
         <table>
           <thead>
@@ -160,205 +218,203 @@
               <th>Durée</th>
             </tr>
           </thead>
-          <tbody id="history-tbody">
-            <tr>
-              <td colspan="5" style="text-align:center;color:#64748b;padding:20px;">
-                Aucune donnée – démarrez le monitoring
-              </td>
-            </tr>
+          <tbody id="history-tbody-spain">
+            <tr><td colspan="5" style="text-align:center;color:#475569;padding:20px;">Démarrez le monitoring Espagne</td></tr>
           </tbody>
         </table>
       </div>
     </div>
 
-  </div>
-
-  <!-- ======================================================
-       PANNEAU NOTIFICATIONS
-       ====================================================== -->
-  <div class="card notif-panel">
-    <div class="card-title" style="margin-bottom:16px;">Notifications</div>
-
-    <!-- ── Section Telegram ── -->
-    <div class="notif-section" style="border-color:#2563eb;">
-      <div class="notif-section-header" style="background:#1e3a5f;" onclick="toggleSection('tg-section')">
-        <span class="notif-section-title" style="color:#93c5fd;">✈ Telegram <span style="font-size:0.7rem;background:#1d4ed8;color:#bfdbfe;padding:2px 7px;border-radius:999px;font-weight:700;letter-spacing:0.5px;">RECOMMANDÉ</span></span>
-        <span id="tg-section-arrow">▼</span>
+    <!-- Historique France -->
+    <div class="tab-content" id="tab-hist-france">
+      <div class="history-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Heure</th>
+              <th>Statut</th>
+              <th>Créneaux</th>
+              <th>Message</th>
+              <th>Durée</th>
+            </tr>
+          </thead>
+          <tbody id="history-tbody-france">
+            <tr><td colspan="5" style="text-align:center;color:#475569;padding:20px;">Démarrez le monitoring France</td></tr>
+          </tbody>
+        </table>
       </div>
-      <div id="tg-section" class="notif-section-body">
+    </div>
 
-        <!-- Statut -->
-        <div id="tg-status" class="twilio-status nok">
-          <span id="tg-status-icon">✗</span>
-          <span id="tg-status-text">Bot non configuré</span>
+  </div><!-- /tabs-section -->
+
+  <!-- ================================================================
+       NOTIFICATIONS
+       ================================================================ -->
+  <div class="notif-panel">
+
+    <div class="notif-panel-header" onclick="toggleSection('notif-panel-body')">
+      <div class="notif-panel-title">
+        🔔 Notifications
+        <span style="font-size:0.7rem;font-weight:400;color:#64748b;">— Telegram, SMS, WhatsApp</span>
+      </div>
+      <span id="notif-panel-body-arrow">▼</span>
+    </div>
+
+    <div class="notif-panel-body hidden" id="notif-panel-body">
+
+      <!-- ── Telegram (recommandé) ── -->
+      <div class="notif-section" style="border-color:#2563eb;">
+        <div class="notif-section-header" style="background:#0e1f3a;" onclick="toggleSection('tg-section')">
+          <span class="notif-section-title" style="color:#93c5fd;">
+            ✈ Telegram
+            <span style="font-size:0.68rem;background:#1d4ed8;color:#bfdbfe;padding:2px 8px;border-radius:999px;font-weight:700;">RECOMMANDÉ</span>
+          </span>
+          <span id="tg-section-arrow">▼</span>
         </div>
-
-        <!-- Guide setup -->
-        <div style="padding:12px;background:#0d1f3a;border:1px solid #1e3a5f;border-radius:8px;font-size:0.78rem;color:#93c5fd;line-height:1.8;">
-          <strong>Setup en 2 minutes :</strong><br/>
-          1. Ouvrir Telegram → chercher <strong>@BotFather</strong><br/>
-          2. Taper <code style="background:#0a1628;padding:1px 5px;border-radius:3px;">/newbot</code> → suivre les instructions → copier le <strong>token</strong><br/>
-          3. Ouvrir votre bot → envoyer n'importe quel message<br/>
-          4. Aller sur <code style="background:#0a1628;padding:1px 5px;border-radius:3px;">https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code> → copier le <strong>chat_id</strong>
-        </div>
-
-        <div class="toggle-row">
-          <span class="toggle-label">Activer les alertes Telegram</span>
-          <label class="toggle">
-            <input type="checkbox" id="tg-enabled" />
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-
-        <div class="form-row">
-          <label class="form-label">Bot Token</label>
-          <input id="cfg-tg-token" class="form-input" type="password" placeholder="123456789:ABCdefGhIjklMnoPQRstuvWXyz" />
-          <span class="form-hint">Fourni par @BotFather — ne pas partager</span>
-        </div>
-
-        <div class="form-row">
-          <label class="form-label">Chat IDs à notifier</label>
-          <div id="tg-tags" class="number-tags"></div>
-          <div class="add-number-row">
-            <input id="tg-new-id" class="form-input" type="text" placeholder="123456789" />
-            <button class="btn-add" onclick="addTgId()">+ Ajouter</button>
+        <div id="tg-section" class="notif-section-body hidden">
+          <div id="tg-status" class="config-status nok">
+            <span id="tg-status-icon">✗</span>
+            <span id="tg-status-text">Bot non configuré</span>
           </div>
-          <span class="form-hint">Votre identifiant numérique Telegram (positif = utilisateur, négatif = groupe)</span>
-        </div>
-
-        <div class="test-row">
-          <button class="btn-test" onclick="testNotif('telegram', 'all')" style="width:100%;">
-            Envoyer un message Telegram test (a tous les IDs)
-          </button>
-          <span id="tg-test-result" class="test-result"></span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Statut Twilio -->
-    <div id="twilio-status" class="twilio-status nok" style="margin-top:14px;margin-bottom:8px;">
-      <span id="twilio-status-icon">✗</span>
-      <span id="twilio-status-text">Credentials Twilio non configurés (SMS/WhatsApp optionnel)</span>
-    </div>
-
-    <!-- Section Twilio credentials -->
-    <div class="notif-section">
-      <div class="notif-section-header" onclick="toggleSection('twilio-creds')">
-        <span class="notif-section-title">🔑 Credentials Twilio</span>
-        <span id="twilio-creds-arrow">▼</span>
-      </div>
-      <div id="twilio-creds" class="notif-section-body">
-        <div class="form-row">
-          <label class="form-label">Account SID</label>
-          <input id="cfg-sid" class="form-input" type="text" placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" />
-        </div>
-        <div class="form-row">
-          <label class="form-label">Auth Token</label>
-          <input id="cfg-token" class="form-input" type="password" placeholder="••••••••••••••••" />
-          <span class="form-hint">Le token est chiffré dans le fichier de config local</span>
-        </div>
-        <div class="form-row">
-          <label class="form-label">Numéro Twilio SMS (From)</label>
-          <input id="cfg-from-sms" class="form-input" type="text" placeholder="+15551234567" />
-          <span class="form-hint">Numéro de votre compte Twilio (format E.164)</span>
-        </div>
-        <div class="form-row">
-          <label class="form-label">Numéro WhatsApp Sandbox (From)</label>
-          <input id="cfg-from-wa" class="form-input" type="text" value="whatsapp:+14155238886" />
-          <span class="form-hint">Sandbox Twilio par défaut — changez après activation WhatsApp Business</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Section SMS -->
-    <div class="notif-section">
-      <div class="notif-section-header" onclick="toggleSection('sms-section')">
-        <span class="notif-section-title">📱 SMS</span>
-        <span id="sms-section-arrow">▼</span>
-      </div>
-      <div id="sms-section" class="notif-section-body">
-        <div class="toggle-row">
-          <span class="toggle-label">Activer les alertes SMS</span>
-          <label class="toggle">
-            <input type="checkbox" id="sms-enabled" />
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-        <div class="form-row">
-          <label class="form-label">Numéros à notifier</label>
-          <div id="sms-tags" class="number-tags"></div>
-          <div class="add-number-row">
-            <input id="sms-new-number" class="form-input" type="tel"
-                   placeholder="+213XXXXXXXXX" />
-            <button class="btn-add" onclick="addNumber('sms')">+ Ajouter</button>
+          <div style="padding:12px;background:#060d1a;border:1px solid #1e3a5f;border-radius:8px;font-size:0.76rem;color:#93c5fd;line-height:1.9;">
+            <strong>Setup en 2 min :</strong><br/>
+            1. Telegram → chercher <strong>@BotFather</strong> → <code style="background:#0a1628;padding:1px 5px;border-radius:3px;">/newbot</code> → copier le <strong>token</strong><br/>
+            2. Ouvrir votre bot → envoyer un message<br/>
+            3. Aller sur <code style="background:#0a1628;padding:1px 5px;border-radius:3px;">https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code> → copier le <strong>chat_id</strong>
           </div>
-          <span class="form-hint">Format international requis : +213 pour l'Algérie</span>
-        </div>
-        <div class="test-row">
-          <input id="sms-test-number" class="form-input" type="tel"
-                 placeholder="+213XXXXXXXXX (test)" style="flex:1;min-width:180px;" />
-          <button class="btn-test" onclick="testNotif('sms')">Envoyer un SMS test</button>
-          <span id="sms-test-result" class="test-result"></span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Section WhatsApp -->
-    <div class="notif-section">
-      <div class="notif-section-header" onclick="toggleSection('wa-section')">
-        <span class="notif-section-title">💬 WhatsApp</span>
-        <span id="wa-section-arrow">▼</span>
-      </div>
-      <div id="wa-section" class="notif-section-body">
-        <div class="toggle-row">
-          <span class="toggle-label">Activer les alertes WhatsApp</span>
-          <label class="toggle">
-            <input type="checkbox" id="wa-enabled" />
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-        <div style="padding:10px 12px;background:#1c2f1c;border:1px solid #2d5a2d;border-radius:8px;font-size:0.75rem;color:#86efac;line-height:1.6;">
-          <strong>Prérequis Sandbox Twilio :</strong><br/>
-          Envoyer <code style="background:#0d1f0d;padding:1px 4px;border-radius:3px;">join &lt;votre-mot-sandbox&gt;</code>
-          au <strong>+1 (415) 523-8886</strong> sur WhatsApp avant de recevoir des messages.
-        </div>
-        <div class="form-row">
-          <label class="form-label">Numéros à notifier</label>
-          <div id="wa-tags" class="number-tags"></div>
-          <div class="add-number-row">
-            <input id="wa-new-number" class="form-input" type="tel"
-                   placeholder="+213XXXXXXXXX" />
-            <button class="btn-add" onclick="addNumber('wa')">+ Ajouter</button>
+          <div class="toggle-row">
+            <span class="toggle-label">Activer les alertes Telegram</span>
+            <label class="toggle"><input type="checkbox" id="tg-enabled" /><span class="toggle-slider"></span></label>
           </div>
-          <span class="form-hint">Entrez le numéro sans "whatsapp:" — ajouté automatiquement</span>
-        </div>
-        <div class="test-row">
-          <input id="wa-test-number" class="form-input" type="tel"
-                 placeholder="+213XXXXXXXXX (test)" style="flex:1;min-width:180px;" />
-          <button class="btn-test" onclick="testNotif('whatsapp')">Envoyer un WhatsApp test</button>
-          <span id="wa-test-result" class="test-result"></span>
+          <div class="form-row">
+            <label class="form-label">Bot Token</label>
+            <input id="cfg-tg-token" class="form-input" type="password" placeholder="123456789:ABCdefGhIjklMnoPQRstuvWXyz" />
+          </div>
+          <div class="form-row">
+            <label class="form-label">Chat IDs à notifier</label>
+            <div id="tg-tags" class="number-tags"></div>
+            <div class="add-number-row">
+              <input id="tg-new-id" class="form-input" type="text" placeholder="123456789" />
+              <button class="btn-add" onclick="addTgId()">+ Ajouter</button>
+            </div>
+            <span class="form-hint">Numérique · positif = utilisateur · négatif = groupe</span>
+          </div>
+          <div class="test-row">
+            <button class="btn-test" onclick="testNotif('telegram', 'all')" style="width:100%;">
+              Envoyer un message test Telegram
+            </button>
+            <span id="tg-test-result" class="test-result"></span>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- Bouton sauvegarder -->
-    <button class="btn-save-notif" onclick="saveNotifSettings()">
-      Sauvegarder la configuration
-    </button>
-    <div id="save-result" style="text-align:center;font-size:0.78rem;margin-top:8px;min-height:20px;color:#64748b;"></div>
-  </div>
+      <!-- ── Credentials Twilio ── -->
+      <div class="notif-section">
+        <div class="notif-section-header" onclick="toggleSection('twilio-creds')">
+          <span class="notif-section-title">🔑 Credentials Twilio (SMS / WhatsApp)</span>
+          <span id="twilio-creds-arrow">▼</span>
+        </div>
+        <div id="twilio-creds" class="notif-section-body hidden">
+          <div id="twilio-status" class="config-status nok">
+            <span id="twilio-status-icon">✗</span>
+            <span id="twilio-status-text">Credentials non configurés</span>
+          </div>
+          <div class="form-row">
+            <label class="form-label">Account SID</label>
+            <input id="cfg-sid" class="form-input" type="text" placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" />
+          </div>
+          <div class="form-row">
+            <label class="form-label">Auth Token</label>
+            <input id="cfg-token" class="form-input" type="password" placeholder="••••••••••••••••" />
+          </div>
+          <div class="form-row">
+            <label class="form-label">Numéro Twilio SMS (From)</label>
+            <input id="cfg-from-sms" class="form-input" type="text" placeholder="+15551234567" />
+          </div>
+          <div class="form-row">
+            <label class="form-label">Numéro WhatsApp Sandbox (From)</label>
+            <input id="cfg-from-wa" class="form-input" type="text" value="whatsapp:+14155238886" />
+          </div>
+        </div>
+      </div>
 
-  <!-- Footer info -->
-  <div style="margin-top:24px;padding:16px;background:#1e293b;border-radius:10px;
-              border:1px solid #334155;font-size:0.75rem;color:#64748b;line-height:1.8;">
-    <strong style="color:#94a3b8;">Information</strong> · Ce moniteur vérifie uniquement
-    la disponibilité sans automatiser de réservation · Intervalle aléatoire de 30 à 90 secondes
-    pour respecter les serveurs · Conforme aux CGU du site BLS Spain Visa
+      <!-- ── SMS ── -->
+      <div class="notif-section">
+        <div class="notif-section-header" onclick="toggleSection('sms-section')">
+          <span class="notif-section-title">📱 SMS</span>
+          <span id="sms-section-arrow">▼</span>
+        </div>
+        <div id="sms-section" class="notif-section-body hidden">
+          <div class="toggle-row">
+            <span class="toggle-label">Activer les alertes SMS</span>
+            <label class="toggle"><input type="checkbox" id="sms-enabled" /><span class="toggle-slider"></span></label>
+          </div>
+          <div class="form-row">
+            <label class="form-label">Numéros à notifier</label>
+            <div id="sms-tags" class="number-tags"></div>
+            <div class="add-number-row">
+              <input id="sms-new-number" class="form-input" type="tel" placeholder="+213XXXXXXXXX" />
+              <button class="btn-add" onclick="addNumber('sms')">+ Ajouter</button>
+            </div>
+            <span class="form-hint">Format international : +213 pour l'Algérie</span>
+          </div>
+          <div class="test-row">
+            <input id="sms-test-number" class="form-input" type="tel" placeholder="+213XXXXXXXXX" style="flex:1;min-width:160px;" />
+            <button class="btn-test" onclick="testNotif('sms')">Tester SMS</button>
+            <span id="sms-test-result" class="test-result"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── WhatsApp ── -->
+      <div class="notif-section">
+        <div class="notif-section-header" onclick="toggleSection('wa-section')">
+          <span class="notif-section-title">💬 WhatsApp</span>
+          <span id="wa-section-arrow">▼</span>
+        </div>
+        <div id="wa-section" class="notif-section-body hidden">
+          <div class="toggle-row">
+            <span class="toggle-label">Activer les alertes WhatsApp</span>
+            <label class="toggle"><input type="checkbox" id="wa-enabled" /><span class="toggle-slider"></span></label>
+          </div>
+          <div style="padding:10px 12px;background:#0d1f0d;border:1px solid #2d5a2d;border-radius:8px;font-size:0.74rem;color:#86efac;line-height:1.7;">
+            Envoyez <code style="background:#071407;padding:1px 4px;border-radius:3px;">join &lt;mot-sandbox&gt;</code>
+            au <strong>+1 (415) 523-8886</strong> sur WhatsApp avant de recevoir des messages.
+          </div>
+          <div class="form-row">
+            <label class="form-label">Numéros à notifier</label>
+            <div id="wa-tags" class="number-tags"></div>
+            <div class="add-number-row">
+              <input id="wa-new-number" class="form-input" type="tel" placeholder="+213XXXXXXXXX" />
+              <button class="btn-add" onclick="addNumber('wa')">+ Ajouter</button>
+            </div>
+          </div>
+          <div class="test-row">
+            <input id="wa-test-number" class="form-input" type="tel" placeholder="+213XXXXXXXXX" style="flex:1;min-width:160px;" />
+            <button class="btn-test" onclick="testNotif('whatsapp')">Tester WhatsApp</button>
+            <span id="wa-test-result" class="test-result"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sauvegarder -->
+      <button class="btn-save-notif" onclick="saveNotifSettings()">
+        💾 Sauvegarder la configuration
+      </button>
+      <div id="save-result" style="text-align:center;font-size:0.76rem;margin-top:6px;min-height:18px;color:#64748b;"></div>
+
+    </div><!-- /notif-panel-body -->
+  </div><!-- /notif-panel -->
+
+  <!-- Footer -->
+  <div class="footer-info">
+    Ce moniteur vérifie la disponibilité sans automatiser de réservation ·
+    Intervalle aléatoire 30–90 s pour respecter les serveurs ·
+    Conforme aux CGU BLS Spain Visa et TLS Contact
   </div>
 
 </main>
 
-<!-- Toasts -->
 <div id="toasts"></div>
 
 <script src="app.js"></script>

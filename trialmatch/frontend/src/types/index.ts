@@ -57,6 +57,15 @@ export interface Protocol {
   updated_at: string;
   created_by: string;
   criteria: Criterion[];
+  // Extended fields (optional — auto-filled from PDF or manual input)
+  objectives_primary?: string;
+  objectives_secondary?: string;
+  study_schema?: string;
+  interventions?: string;
+  study_drugs?: StudyDrug[];
+  authorized_meds?: string[];
+  prohibited_meds?: string[];
+  visits?: StudyVisit[];
 }
 
 export interface ProtocolListItem {
@@ -80,6 +89,15 @@ export interface CreateProtocolPayload {
   promoter?: string;
   arc_referent?: string;
   criteria: Array<{ type: CriterionType; text: string; order: number }>;
+  // Extended
+  objectives_primary?: string;
+  objectives_secondary?: string;
+  study_schema?: string;
+  interventions?: string;
+  study_drugs?: StudyDrug[];
+  authorized_meds?: string[];
+  prohibited_meds?: string[];
+  visits?: StudyVisit[];
 }
 
 // ── Patient ───────────────────────────────────────────────────────────────────
@@ -91,6 +109,7 @@ export interface PatientContext {
   stade?: string;
   ecog_performance_status?: number;
   traitements_en_cours?: string[];
+  medicaments_concomitants?: string[];
   biologie?: Record<string, string | number>;
   antecedents?: string[];
   notes_libres?: string;
@@ -160,6 +179,32 @@ export interface StudyDocument {
   content_text: string;
   uploaded_by: string;
   uploaded_at: string;
+}
+
+// ── Protocol extended fields ──────────────────────────────────────────────────
+
+export interface StudyDrug {
+  name: string;
+  dose?: string;
+  route?: string;       // IV, PO, SC…
+  frequency?: string;   // J1, Q3W…
+  notes?: string;
+}
+
+export interface StudyExam {
+  id: string;
+  name: string;
+  required: boolean;
+  notes?: string;
+}
+
+export interface StudyVisit {
+  id: string;
+  name: string;
+  day: number;                    // day relative to D1 (screening = negative)
+  window_before?: number;         // days
+  window_after?: number;
+  exams: StudyExam[];
 }
 
 export interface MissingDataPoint {

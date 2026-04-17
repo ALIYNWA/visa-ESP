@@ -4,9 +4,10 @@ import { protocolsApi } from "@/api/protocols";
 import { ProtocolForm } from "@/components/ProtocolForm";
 import { CriterionList } from "@/components/CriterionList";
 import { DocumentManager } from "@/components/DocumentManager";
+import { VisitsSchedule } from "@/components/VisitsSchedule";
 import type { CreateProtocolPayload, Protocol } from "@/types";
 
-type DetailTab = "overview" | "criteria" | "documents";
+type DetailTab = "overview" | "criteria" | "documents" | "visits";
 
 const PHASE_COLORS: Record<string, { bg: string; color: string; border: string }> = {
   I:   { bg: "rgba(139,92,246,0.15)", color: "#a78bfa", border: "rgba(139,92,246,0.25)" },
@@ -183,6 +184,7 @@ export function ProtocolManager() {
               {([
                 { id: "overview",   label: "Vue d'ensemble",    icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
                 { id: "criteria",   label: `Critères (${selected.criteria.length})`, icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" },
+                { id: "visits",     label: `Calendrier (${(selected as any).visits?.length ?? 0})`, icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" },
                 { id: "documents",  label: "Documents",          icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
               ] as const).map(tab => (
                 <button
@@ -208,14 +210,15 @@ export function ProtocolManager() {
 
               {detailTab === "overview" && (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  {/* KPI grid */}
+                  <div className="grid grid-cols-3 gap-3">
                     {[
                       { label: "Phase", value: `Phase ${selected.phase}` },
                       { label: "Version", value: `v${selected.version}` },
                       { label: "Promoteur", value: selected.promoter ?? "—" },
                       { label: "ARC référent", value: selected.arc_referent ?? "—" },
-                      { label: "Critères d'inclusion", value: `${selected.criteria.filter(c => c.type === "INC").length}` },
-                      { label: "Critères d'exclusion", value: `${selected.criteria.filter(c => c.type === "EXC").length}` },
+                      { label: "Critères inclusion", value: `${selected.criteria.filter(c => c.type === "INC").length}` },
+                      { label: "Critères exclusion", value: `${selected.criteria.filter(c => c.type === "EXC").length}` },
                     ].map(({ label, value }) => (
                       <div key={label} className="rounded-xl p-4"
                            style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
@@ -224,13 +227,106 @@ export function ProtocolManager() {
                       </div>
                     ))}
                   </div>
+
                   {selected.summary && (
                     <div className="rounded-xl p-4"
                          style={{ background: "rgba(14,165,233,0.06)", border: "1px solid rgba(14,165,233,0.12)" }}>
                       <p className="text-xs font-medium mb-2" style={{ color: "#0ea5e9" }}>Résumé</p>
-                      <p className="text-sm leading-relaxed" style={{ color: "#bae6fd" }}>{selected.summary}</p>
+                      <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: "#bae6fd" }}>{selected.summary}</p>
                     </div>
                   )}
+
+                  {(selected as any).objectives_primary && (
+                    <div className="rounded-xl p-4"
+                         style={{ background: "rgba(99,102,241,0.05)", border: "1px solid rgba(99,102,241,0.12)" }}>
+                      <p className="text-xs font-semibold mb-2 uppercase tracking-widest" style={{ color: "#818cf8" }}>Objectif principal</p>
+                      <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: "#c7d2fe" }}>{(selected as any).objectives_primary}</p>
+                    </div>
+                  )}
+
+                  {(selected as any).objectives_secondary && (
+                    <div className="rounded-xl p-4"
+                         style={{ background: "rgba(99,102,241,0.03)", border: "1px solid rgba(99,102,241,0.08)" }}>
+                      <p className="text-xs font-semibold mb-2 uppercase tracking-widest" style={{ color: "#6366f1" }}>Objectifs secondaires</p>
+                      <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: "#94a3b8" }}>{(selected as any).objectives_secondary}</p>
+                    </div>
+                  )}
+
+                  {(selected as any).study_schema && (
+                    <div className="rounded-xl p-4"
+                         style={{ background: "rgba(20,184,166,0.05)", border: "1px solid rgba(20,184,166,0.12)" }}>
+                      <p className="text-xs font-semibold mb-2 uppercase tracking-widest" style={{ color: "#2dd4bf" }}>Schéma de l'étude</p>
+                      <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: "#99f6e4" }}>{(selected as any).study_schema}</p>
+                    </div>
+                  )}
+
+                  {(selected as any).interventions && (
+                    <div className="rounded-xl p-4"
+                         style={{ background: "rgba(20,184,166,0.03)", border: "1px solid rgba(20,184,166,0.08)" }}>
+                      <p className="text-xs font-semibold mb-2 uppercase tracking-widest" style={{ color: "#14b8a6" }}>Interventions</p>
+                      <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: "#94a3b8" }}>{(selected as any).interventions}</p>
+                    </div>
+                  )}
+
+                  {/* Study drugs */}
+                  {((selected as any).study_drugs ?? []).length > 0 && (
+                    <div className="rounded-xl p-4"
+                         style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                      <p className="text-xs font-semibold mb-3 uppercase tracking-widest" style={{ color: "#475569" }}>
+                        Médicaments étudiés ({(selected as any).study_drugs.length})
+                      </p>
+                      <div className="space-y-2">
+                        {(selected as any).study_drugs.map((d: any, i: number) => (
+                          <div key={i} className="flex items-start gap-3 rounded-lg px-3 py-2"
+                               style={{ background: "rgba(99,102,241,0.07)" }}>
+                            <span className="text-xs font-semibold" style={{ color: "#818cf8", minWidth: "120px" }}>{d.name}</span>
+                            <span className="text-xs" style={{ color: "#94a3b8" }}>
+                              {[d.dose, d.route, d.frequency].filter(Boolean).join(" · ")}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Authorized / Prohibited meds */}
+                  {(((selected as any).authorized_meds ?? []).length > 0 || ((selected as any).prohibited_meds ?? []).length > 0) && (
+                    <div className="grid grid-cols-2 gap-4">
+                      {((selected as any).authorized_meds ?? []).length > 0 && (
+                        <div className="rounded-xl p-4"
+                             style={{ background: "rgba(16,185,129,0.04)", border: "1px solid rgba(16,185,129,0.12)" }}>
+                          <p className="text-xs font-semibold mb-2 uppercase tracking-widest" style={{ color: "#34d399" }}>
+                            Médicaments autorisés
+                          </p>
+                          <ul className="space-y-1.5">
+                            {(selected as any).authorized_meds.map((m: string, i: number) => (
+                              <li key={i} className="flex items-start gap-2 text-xs">
+                                <span style={{ color: "#34d399" }}>✓</span>
+                                <span style={{ color: "#94a3b8" }}>{m}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {((selected as any).prohibited_meds ?? []).length > 0 && (
+                        <div className="rounded-xl p-4"
+                             style={{ background: "rgba(244,63,94,0.04)", border: "1px solid rgba(244,63,94,0.12)" }}>
+                          <p className="text-xs font-semibold mb-2 uppercase tracking-widest" style={{ color: "#fb7185" }}>
+                            Médicaments interdits
+                          </p>
+                          <ul className="space-y-1.5">
+                            {(selected as any).prohibited_meds.map((m: string, i: number) => (
+                              <li key={i} className="flex items-start gap-2 text-xs">
+                                <span style={{ color: "#fb7185" }}>✗</span>
+                                <span style={{ color: "#94a3b8" }}>{m}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="rounded-xl p-3 flex items-center gap-2"
                        style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.07)" }}>
                     <svg width="12" height="12" fill="none" stroke="#334155" strokeWidth="2" viewBox="0 0 24 24">
@@ -253,6 +349,17 @@ export function ProtocolManager() {
                     await protocolsApi.updateCriterion(selected.id, cid, { order });
                     const r = await protocolsApi.get(selected.id);
                     setSelected(r.data);
+                  }}
+                />
+              )}
+
+              {detailTab === "visits" && (
+                <VisitsSchedule
+                  visits={(selected as any).visits ?? []}
+                  canEdit={true}
+                  onChange={visits => {
+                    setSelected(prev => prev ? { ...prev, visits } as any : prev);
+                    protocolsApi.update?.(selected.id, { visits });
                   }}
                 />
               )}

@@ -37,7 +37,32 @@
       "Bash(curl -sL -o /dev/null -w '%{http_code} %{url_effective}' -A 'Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36' https://algeria.blsspainglobal.com/DZA/bls/appointment)",
       "Bash(curl -sL -o /dev/null -w '%{http_code} %{url_effective}' -A Mozilla/5.0 https://algeria.blsspainglobal.com/DZA/)",
       "Bash(curl -sL -o /dev/null -w '%{http_code} %{url_effective}' -A Mozilla/5.0 https://algeria.blsspainglobal.com/)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(gh auth:*)",
+      "Bash(gh repo:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(curl -s http://localhost:3001)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(node -e:*)",
+      "Bash(node create-test-pdf.mjs)",
+      "Bash(node --input-type=module)",
+      "mcp__Claude_in_Chrome__computer",
+      "WebFetch(domain:france-visas.gouv.fr)",
+      "WebFetch(domain:www.tlscontact.com)",
+      "WebFetch(domain:fr.tlscontact.com)",
+      "Bash(python -m uvicorn main:app --host 0.0.0.0 --port 8000)",
+      "Bash(netstat -ano)",
+      "Bash(findstr :8000)",
+      "Bash(findstr LISTENING)",
+      "Bash(taskkill /PID 9116 /F)",
+      "Bash(cmd /c \"taskkill /PID 9116 /F\")",
+      "Bash(cmd /c \"taskkill /PID 9116 /F 2>&1\")",
+      "Bash(python -c \"import subprocess; subprocess.run\\(['taskkill', '/PID', '9116', '/F']\\)\")",
+      "Bash(curl -s -X POST http://localhost:8000/api/spain/start)",
+      "Bash(curl -s -X POST http://localhost:8000/api/france/start)",
+      "Bash(Read C:/Users/lfc_a/AppData/Local/Temp/claude/C--Users-lfc-a-Desktop-Claude-screenMatch/1f5c5f97-fbc1-4a94-8f14-fcff1d30cf45/tasks/b7eoklkxj.output)"
     ]
   }
 }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Analysis, CriterionResult, OverrideStatus } from "@/types";
+import type { Analysis, OverrideStatus } from "@/types";
 import { EligibilityScore } from "./EligibilityScore";
 import { AnalysisReport } from "./AnalysisReport";
 
@@ -14,10 +14,16 @@ interface Props {
   onOverride: (criterionResultId: string, status: OverrideStatus, note: string) => Promise<void>;
 }
 
-const STATUS_STYLE: Record<string, { color: string; bg: string; border: string; dot: string; icon: string }> = {
-  satisfait:     { color: "#34d399", bg: "rgba(16,185,129,0.1)",   border: "rgba(16,185,129,0.2)",   dot: "#34d399", icon: "✓" },
-  non_satisfait: { color: "#fb7185", bg: "rgba(244,63,94,0.1)",    border: "rgba(244,63,94,0.2)",    dot: "#fb7185", icon: "✗" },
-  inconnu:       { color: "#fbbf24", bg: "rgba(245,158,11,0.1)",   border: "rgba(245,158,11,0.15)",  dot: "#f59e0b", icon: "?" },
+const STATUS_STYLE: Record<string, {
+  color: string; bg: string; border: string; dot: string; icon: string;
+  rowBg: string; rowBorder: string; checkBg: string;
+}> = {
+  satisfait:     { color: "#34d399", bg: "rgba(16,185,129,0.1)",   border: "rgba(16,185,129,0.2)",   dot: "#34d399", icon: "✓",
+                   rowBg: "rgba(16,185,129,0.04)", rowBorder: "rgba(16,185,129,0.25)", checkBg: "rgba(16,185,129,0.18)" },
+  non_satisfait: { color: "#fb7185", bg: "rgba(244,63,94,0.1)",    border: "rgba(244,63,94,0.2)",    dot: "#fb7185", icon: "✗",
+                   rowBg: "rgba(244,63,94,0.05)",  rowBorder: "rgba(244,63,94,0.3)",   checkBg: "rgba(244,63,94,0.18)"  },
+  inconnu:       { color: "#fbbf24", bg: "rgba(245,158,11,0.1)",   border: "rgba(245,158,11,0.15)",  dot: "#f59e0b", icon: "?",
+                   rowBg: "rgba(245,158,11,0.04)", rowBorder: "rgba(245,158,11,0.2)",  checkBg: "rgba(245,158,11,0.18)" },
 };
 
 export function RCPSheet({
@@ -157,11 +163,53 @@ export function RCPSheet({
             ))}
           </div>
         </div>
+        {/* Legend */}
+        <div className="flex items-center gap-4 px-5 py-2.5"
+             style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", background: "rgba(255,255,255,0.01)" }}>
+          {[
+            { status: "satisfait",     label: "Vérifié" },
+            { status: "non_satisfait", label: "Non satisfait" },
+            { status: "inconnu",       label: "Données manquantes" },
+          ].map(({ status, label }) => {
+            const s = STATUS_STYLE[status];
+            return (
+              <div key={status} className="flex items-center gap-1.5">
+                <div className="w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold"
+                     style={{ background: s.checkBg, color: s.color, border: `1px solid ${s.border}` }}>
+                  {s.icon}
+                </div>
+                <span className="text-xs" style={{ color: "#475569" }}>{label}</span>
+              </div>
+            );
+          })}
+          <div className="ml-auto flex items-center gap-3 text-xs" style={{ color: "#334155" }}>
+            <span style={{ color: "#34d399" }}>
+              ✓ {filteredResults.filter(r => (r.override_status ?? r.status) === "satisfait").length} vérifiés
+            </span>
+            <span style={{ color: "#fb7185" }}>
+              ✗ {filteredResults.filter(r => (r.override_status ?? r.status) === "non_satisfait").length} exclus
+            </span>
+            <span style={{ color: "#fbbf24" }}>
+              ? {filteredResults.filter(r => !r.override_status && r.status === "inconnu").length} inconnus
+            </span>
+          </div>
+        </div>
+
         <table className="w-full" data-testid="criteria-table">
           <thead>
             <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-              {["#", "Type", "Critère", "Statut", "Raisonnement", ""].map(h => (
-                <th key={h} className="px-4 py-3 text-left text-xs font-medium" style={{ color: "var(--text-muted)" }}>{h}</th>
+              {[
+                { label: "",        width: "52px"  },
+                { label: "Statut",  width: "110px" },
+                { label: "Type",    width: "70px"  },
+                { label: "Critère", width: "auto"  },
+                { label: "Raisonnement / Vigilance", width: "auto" },
+                { label: "",        width: "80px"  },
+              ].map((h, i) => (
+                <th key={i} className="px-4 py-3 text-left text-xs font-medium"
+                    style={{ color: "var(--text-muted)", width: h.width }}>
+                  {h.label}
+                </th>
               ))}
             </tr>
           </thead>
@@ -172,49 +220,78 @@ export function RCPSheet({
               const isMissing = missing.some(m => m.criterion_id === cr.criterion_id);
               return (
                 <tr key={cr.id}
-                    className="transition-colors hover:bg-white/[0.02]"
-                    style={{ borderBottom: i < filteredResults.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
-                             background: isMissing ? "rgba(245,158,11,0.03)" : "transparent" }}
+                    className="transition-all"
+                    style={{
+                      borderBottom: i < filteredResults.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
+                      background: s.rowBg,
+                      borderLeft: `3px solid ${s.rowBorder}`,
+                    }}
                     data-testid={`criterion-row-${cr.id}`}>
-                  <td className="px-4 py-3.5">
+
+                  {/* Index */}
+                  <td className="px-4 py-4">
                     <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>
                       {String(i + 1).padStart(2, "0")}
                     </span>
                   </td>
-                  <td className="px-4 py-3.5">
+
+                  {/* Status checkbox */}
+                  <td className="px-3 py-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center text-base font-bold shrink-0"
+                           style={{ background: s.checkBg, color: s.color, border: `1.5px solid ${s.border}`, lineHeight: 1 }}>
+                        {s.icon}
+                      </div>
+                      <div>
+                        <span className="text-xs font-semibold" style={{ color: s.color }}>
+                          {effectiveStatus === "satisfait"     ? "Vérifié"
+                         : effectiveStatus === "non_satisfait" ? "Exclu"
+                         :                                       "Inconnu"}
+                        </span>
+                        {cr.override_status && (
+                          <span className="block text-xs" style={{ color: "#475569", fontSize: "10px" }}>
+                            (modifié)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+
+                  {/* Type */}
+                  <td className="px-3 py-4">
                     <span className="text-xs font-semibold px-2 py-1 rounded-md"
                           style={cr.criterion_type === "INC"
                             ? { background: "rgba(99,102,241,0.15)", color: "#818cf8" }
                             : { background: "rgba(251,146,60,0.15)", color: "#fb923c" }}>
-                      {cr.criterion_type}
+                      {cr.criterion_type === "INC" ? "Inclusion" : "Exclusion"}
                     </span>
                   </td>
-                  <td className="px-4 py-3.5 text-sm max-w-xs" style={{ color: "#cbd5e1" }}>
-                    {cr.criterion_text}
+
+                  {/* Criterion text */}
+                  <td className="px-4 py-4 text-sm" style={{ color: "#cbd5e1", maxWidth: "280px" }}>
+                    <span className="leading-relaxed">{cr.criterion_text}</span>
                     {isMissing && (
-                      <span className="ml-2 text-xs px-1.5 py-0.5 rounded-md"
+                      <span className="inline-flex items-center gap-1 ml-2 text-xs px-1.5 py-0.5 rounded-md"
                             style={{ background: "rgba(245,158,11,0.15)", color: "#f59e0b" }}>
                         ⚠ données manquantes
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3.5">
-                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full"
-                          style={{ background: s.bg, color: s.color, border: `1px solid ${s.border}` }}>
-                      <span>{s.icon}</span>
-                      {effectiveStatus.replace("_", " ")}
-                      {cr.override_status && <span style={{ opacity: 0.7, fontSize: "10px" }}>• modifié</span>}
-                    </span>
+
+                  {/* Reasoning */}
+                  <td className="px-4 py-4" style={{ maxWidth: "260px" }}>
+                    <p className="text-xs leading-relaxed" style={{ color: isMissing ? "#d97706" : "#64748b" }}>
+                      {cr.reasoning}
+                    </p>
                   </td>
-                  <td className="px-4 py-3.5 text-xs max-w-xs leading-relaxed" style={{ color: "#64748b" }}>
-                    {cr.reasoning}
-                  </td>
-                  <td className="px-4 py-3.5">
+
+                  {/* Override */}
+                  <td className="px-4 py-4">
                     {canOverride && !isValidated && (
                       <button
                         onClick={() => setOverrideTarget(cr.id)}
-                        className="text-xs px-2.5 py-1 rounded-lg transition-colors"
-                        style={{ color: "#6366f1", background: "rgba(99,102,241,0.1)" }}
+                        className="text-xs px-2.5 py-1 rounded-lg transition-colors whitespace-nowrap"
+                        style={{ color: "#6366f1", background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.2)" }}
                         data-testid={`override-btn-${cr.id}`}
                       >
                         Modifier

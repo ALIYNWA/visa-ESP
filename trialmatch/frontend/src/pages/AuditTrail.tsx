@@ -78,8 +78,8 @@ function LogRow({ log }: { log: AuditLog }) {
 
   const entityLabel = ENTITY_LABEL[log.entity] ?? log.entity;
 
-  const timestamp = log.created_at
-    ? new Date(log.created_at).toLocaleString("fr-FR", {
+  const timestamp = log.timestamp
+    ? new Date(log.timestamp).toLocaleString("fr-FR", {
         day: "2-digit",
         month: "2-digit",
         year: "numeric",

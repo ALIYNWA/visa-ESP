@@ -19,6 +19,7 @@ export function PatientForm({ onSubmit, isLoading, initialValues, submitLabel }:
   const [stade, setStade] = useState(ctx?.stade ?? "");
   const [ecog, setEcog] = useState(ctx?.ecog_performance_status != null ? String(ctx.ecog_performance_status) : "");
   const [traitements, setTraitements] = useState(ctx?.traitements_en_cours?.join("\n") ?? "");
+  const [medsConcomitants, setMedsConcomitants] = useState(ctx?.medicaments_concomitants?.join("\n") ?? "");
   const [antecedents, setAntecedents] = useState(ctx?.antecedents?.join("\n") ?? "");
   const [notesLibres, setNotesLibres] = useState(ctx?.notes_libres ?? "");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -42,6 +43,7 @@ export function PatientForm({ onSubmit, isLoading, initialValues, submitLabel }:
       ...(stade ? { stade } : {}),
       ...(ecog ? { ecog_performance_status: +ecog } : {}),
       traitements_en_cours: traitements.split("\n").map(t => t.trim()).filter(Boolean),
+      medicaments_concomitants: medsConcomitants.split("\n").map(m => m.trim()).filter(Boolean),
       antecedents: antecedents.split("\n").map(a => a.trim()).filter(Boolean),
       ...(notesLibres ? { notes_libres: notesLibres } : {}),
     };
@@ -113,9 +115,20 @@ export function PatientForm({ onSubmit, isLoading, initialValues, submitLabel }:
         </div>
       </div>
 
+      {/* Médicaments concomitants */}
+      <div>
+        <label style={labelStyle}>
+          Médicaments concomitants <span style={{ opacity: .5 }}>(1 par ligne — vérification contre-indications)</span>
+        </label>
+        <textarea value={medsConcomitants} onChange={e => setMedsConcomitants(e.target.value)} rows={3}
+                  className="input-dark w-full rounded-xl px-4 py-2.5 text-sm resize-none"
+                  placeholder={"Prednisolone 10mg/j\nMetformine 1000mg\n..."}
+                  data-testid="patient-meds-concomitants" />
+      </div>
+
       {/* Notes libres */}
       <div>
-        <label style={labelStyle}>Notes cliniques libres</label>
+        <label style={labelStyle}>Notes cliniques libres <span style={{ opacity: .5 }}>(statut moléculaire, imagerie, remarques…)</span></label>
         <textarea value={notesLibres} onChange={e => setNotesLibres(e.target.value)} rows={3}
                   className="input-dark w-full rounded-xl px-4 py-2.5 text-sm resize-none"
                   maxLength={5000} data-testid="patient-notes" />

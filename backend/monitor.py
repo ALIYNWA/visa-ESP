@@ -1,8 +1,8 @@
 """
-Boucle de monitoring principale
+Boucle de monitoring principale – Double moniteur (Espagne + France)
 - Intervalle aléatoire (30–90s)
-- Diffusion WebSocket temps réel
-- Historique des vérifications
+- Diffusion WebSocket temps réel avec monitor_id
+- Historique des vérifications par pays
 - Journalisation fichier
 """
 import asyncio
@@ -21,11 +21,11 @@ from scraper import check_appointment
 
 logger = logging.getLogger(__name__)
 
-MAX_HISTORY = 200  # entrées conservées en mémoire
+MAX_HISTORY = 200
 
 
 class ConnectionManager:
-    """Gestionnaire de connexions WebSocket."""
+    """Gestionnaire de connexions WebSocket partagé."""
 
     def __init__(self):
         self._connections: Set[WebSocket] = set()
@@ -51,13 +51,18 @@ class ConnectionManager:
             self.disconnect(ws)
 
 
+# Instance partagée unique
 ws_manager = ConnectionManager()
 
 
 class Monitor:
-    """Moteur de surveillance périodique."""
+    """Moteur de surveillance périodique pour un pays donné."""
 
-    def __init__(self):
+    def __init__(self, monitor_id: str, target_url: str, label: str):
+        self.monitor_id = monitor_id
+        self.target_url = target_url
+        self.label = label
+
         self._task: Optional[asyncio.Task] = None
         self._running: bool = False
         self._total_checks: int = 0
@@ -73,18 +78,18 @@ class Monitor:
     # ------------------------------------------------------------------
     def start(self):
         if self._running:
-            logger.warning("Monitor déjà en cours")
+            logger.warning(f"[{self.monitor_id}] Monitor déjà en cours")
             return
         self._running = True
         self._uptime_since = datetime.now(timezone.utc)
         self._task = asyncio.create_task(self._loop())
-        logger.info("Monitor démarré")
+        logger.info(f"[{self.monitor_id}] Monitor démarré → {self.target_url}")
 
     def stop(self):
         self._running = False
         if self._task:
             self._task.cancel()
-        logger.info("Monitor arrêté")
+        logger.info(f"[{self.monitor_id}] Monitor arrêté")
 
     @property
     def is_running(self) -> bool:
@@ -95,6 +100,8 @@ class Monitor:
     # ------------------------------------------------------------------
     def get_status(self) -> MonitorStatus:
         return MonitorStatus(
+            monitor_id=self.monitor_id,
+            label=self.label,
             is_running=self._running,
             current_status=self._current_status,
             slots_detected=self._slots_detected,
@@ -110,8 +117,8 @@ class Monitor:
     # Boucle principale
     # ------------------------------------------------------------------
     async def _loop(self):
-        logger.info("Boucle de monitoring lancée")
-        await self._broadcast_log("Monitoring démarré – vérification en cours...")
+        logger.info(f"[{self.monitor_id}] Boucle lancée")
+        await self._broadcast_log(f"Monitoring {self.label} démarré – vérification en cours...")
 
         while self._running:
             await self._do_check()
@@ -119,17 +126,17 @@ class Monitor:
             if not self._running:
                 break
 
-            # Délai aléatoire anti-blocage
             interval = random.randint(
                 settings.CHECK_INTERVAL_MIN,
                 settings.CHECK_INTERVAL_MAX
             )
             self._next_check = datetime.now(timezone.utc) + timedelta(seconds=interval)
-            logger.info(f"Prochaine vérification dans {interval}s")
+            logger.info(f"[{self.monitor_id}] Prochaine vérif dans {interval}s")
 
             await self._broadcast(WSMessage(
                 type="status_update",
                 data={
+                    "monitor_id": self.monitor_id,
                     "next_check_in_seconds": interval,
                     "next_check": self._next_check.isoformat(),
                 }
@@ -140,29 +147,30 @@ class Monitor:
             except asyncio.CancelledError:
                 break
 
-        logger.info("Boucle de monitoring terminée")
+        logger.info(f"[{self.monitor_id}] Boucle terminée")
 
     async def _do_check(self):
         """Effectue une vérification et traite le résultat."""
         self._total_checks += 1
-        logger.info(f"Vérification #{self._total_checks}")
+        logger.info(f"[{self.monitor_id}] Vérification #{self._total_checks}")
 
-        result = await check_appointment()
+        result = await check_appointment(
+            monitor_id=self.monitor_id,
+            target_url=self.target_url,
+        )
         self._last_check = result.timestamp
         self._history.append(result)
 
-        # Mise à jour compteurs
         if result.available:
             self._slots_detected = max(self._slots_detected, result.slots_count)
 
-        # Détection de changement d'état
         state_changed = (self._current_status is not None and
                          self._current_status != result.available)
         self._current_status = result.available
 
         logger.info(result.to_log())
 
-        # Broadcast résultat
+        # Broadcast résultat avec monitor_id
         await self._broadcast(WSMessage(
             type="check_result",
             data={
@@ -170,6 +178,7 @@ class Monitor:
                 "timestamp": result.timestamp.isoformat(),
                 "check_number": self._total_checks,
                 "state_changed": state_changed,
+                "monitor_id": self.monitor_id,
             }
         ))
 
@@ -180,15 +189,16 @@ class Monitor:
                 await self._broadcast(WSMessage(
                     type="notification",
                     data={
+                        "monitor_id": self.monitor_id,
                         "channels": notif_report.get("channels", []),
-                        "message": "Notifications envoyées !",
+                        "message": f"Notifications {self.label} envoyées !",
                     }
                 ))
                 await self._broadcast_log(
-                    f"ALERTE envoyée via {', '.join(notif_report.get('channels', []))}"
+                    f"[{self.label}] ALERTE via {', '.join(notif_report.get('channels', []))}"
                 )
         elif result.error:
-            await self._broadcast_log(f"Erreur : {result.error}")
+            await self._broadcast_log(f"[{self.label}] Erreur : {result.error}")
 
     # ------------------------------------------------------------------
     # WebSocket helpers
@@ -199,9 +209,31 @@ class Monitor:
     async def _broadcast_log(self, text: str):
         await self._broadcast(WSMessage(
             type="log",
-            data={"message": text, "timestamp": datetime.now(timezone.utc).isoformat()}
+            data={
+                "message": text,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "monitor_id": self.monitor_id,
+            }
         ))
 
 
-# Instance globale
-monitor = Monitor()
+# ------------------------------------------------------------------
+# Instances globales – Espagne + France
+# ------------------------------------------------------------------
+spain_monitor = Monitor(
+    monitor_id="spain",
+    target_url=settings.TARGET_URL,
+    label="Espagne",
+)
+
+france_monitor = Monitor(
+    monitor_id="france",
+    target_url=settings.FRANCE_TARGET_URL,
+    label="France",
+)
+
+# Dictionnaire pour accès générique
+MONITORS = {
+    "spain": spain_monitor,
+    "france": france_monitor,
+}

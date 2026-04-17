@@ -1,9 +1,9 @@
 """
 Modèles de données Pydantic
 """
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 from datetime import datetime, timezone
-from typing import Optional, List, Any
+from typing import Optional, List
 
 
 def _now() -> datetime:
@@ -11,20 +11,24 @@ def _now() -> datetime:
 
 
 class CheckResult(BaseModel):
+    monitor_id: str = "spain"          # "spain" | "france"
     timestamp: datetime
     available: bool
     slots_count: int
     message: str
     duration_ms: Optional[float] = None
     error: Optional[str] = None
+    page_excerpt: Optional[str] = None  # Extrait du texte de la page (600 chars max)
 
     def to_log(self) -> str:
         status = "DISPONIBLE [OK]" if self.available else "Indisponible [--]"
         ts = self.timestamp.strftime("%Y-%m-%d %H:%M:%S")
-        return f"[{ts}] {status} | creneaux: {self.slots_count} | {self.message}"
+        return f"[{self.monitor_id.upper()}] [{ts}] {status} | creneaux: {self.slots_count} | {self.message}"
 
 
 class MonitorStatus(BaseModel):
+    monitor_id: str = "spain"
+    label: str = "Espagne"
     is_running: bool
     current_status: Optional[bool] = None
     slots_detected: int = 0
