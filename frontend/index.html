@@ -14,190 +14,296 @@
      ================================================================ -->
 <header>
   <div class="header-brand">
-    <div class="header-flags">🇪🇸🇫🇷</div>
-    <h1>VisaMonitor</h1>
-    <span style="font-size:0.78rem;color:#475569;">Alger · Temps réel</span>
+    <span class="header-icon">🛂</span>
+    <div>
+      <div class="header-title">VisaMonitor</div>
+      <div class="header-sub">Surveillance rendez-vous · Alger</div>
+    </div>
   </div>
   <div class="header-right">
-    <span id="running-indicator" style="display:none;align-items:center;gap:5px;font-size:0.72rem;color:#10b981;">
-      <span style="width:7px;height:7px;background:#10b981;border-radius:50%;animation:blink 1s infinite;"></span>
-      En cours
+    <span id="running-indicator" class="running-badge" style="display:none;">
+      <span class="running-dot-anim"></span>En cours
     </span>
     <span id="ws-badge" class="ws-badge disconnected">○ Déconnecté</span>
   </div>
 </header>
 
-<!-- ================================================================
-     MAIN
-     ================================================================ -->
 <main>
 
-  <!-- ── DEUX MONITORS CÔTE À CÔTE ── -->
-  <div class="monitors-grid">
+  <!-- ================================================================
+       SECTION ESPAGNE
+       ================================================================ -->
+  <div class="country-section" id="section-spain">
 
-    <!-- ============================================================
-         ESPAGNE – BLS Spain Visa
-         ============================================================ -->
-    <div class="monitor-card" id="card-spain">
+    <!-- ── Séparateur drapeau ── -->
+    <div class="flag-divider spain-divider">
+      <div class="flag-divider-line"></div>
+      <div class="flag-divider-label">
+        <span class="flag-divider-emoji">🇪🇸</span>
+        <span class="flag-divider-text">VISA ESPAGNE</span>
+        <span class="flag-divider-sub">BLS Spain Visa · Alger</span>
+      </div>
+      <div class="flag-divider-line"></div>
+    </div>
 
-      <!-- Entête pays -->
-      <div class="monitor-header spain-hdr">
-        <div class="monitor-title-wrap">
-          <span class="monitor-flag">🇪🇸</span>
-          <div>
-            <div class="monitor-name">Visa Espagne</div>
-            <div class="monitor-subtitle">BLS Spain Visa · Alger</div>
+    <!-- ── Contenu Espagne ── -->
+    <div class="country-body">
+
+      <!-- Statut principal -->
+      <div class="status-block" id="card-spain">
+        <div class="status-center">
+          <span class="status-icon-xl" id="icon-spain">🔍</span>
+          <div class="status-badge unknown" id="badge-spain">EN ATTENTE</div>
+          <div class="status-msg" id="msg-spain">Démarrez le monitoring</div>
+        </div>
+
+        <!-- ── PANNEAU CRÉNEAUX (visible seulement quand dispo) ── -->
+        <div class="slot-panel" id="slot-panel-spain" style="display:none;">
+          <div class="slot-panel-header">
+            <span class="slot-alert-icon">🚨</span>
+            <span class="slot-alert-text">CRÉNEAU DÉTECTÉ !</span>
+          </div>
+          <div class="slot-panel-grid">
+            <div class="slot-info-block">
+              <div class="slot-info-label">Créneaux disponibles</div>
+              <div class="slot-info-value green" id="slot-count-spain">–</div>
+            </div>
+            <div class="slot-info-block">
+              <div class="slot-info-label">Détecté à</div>
+              <div class="slot-info-value" id="slot-time-spain">–</div>
+            </div>
+            <div class="slot-info-block">
+              <div class="slot-info-label">Durée vérification</div>
+              <div class="slot-info-value" id="slot-dur-spain">–</div>
+            </div>
+            <div class="slot-info-block">
+              <div class="slot-info-label">Vérification n°</div>
+              <div class="slot-info-value" id="slot-checkno-spain">–</div>
+            </div>
+          </div>
+          <div class="slot-source">
+            <div class="slot-source-label">Signal de détection</div>
+            <div class="slot-source-value" id="slot-msg-spain">–</div>
+          </div>
+          <div class="slot-excerpt-block" id="slot-excerpt-wrap-spain" style="display:none;">
+            <div class="slot-excerpt-label">📋 Ce que dit le site</div>
+            <div class="slot-excerpt-text" id="slot-excerpt-spain"></div>
+          </div>
+          <a class="book-btn-big spain-book"
+             href="https://algeria.blsspainglobal.com/DZA/account/login"
+             target="_blank" rel="noopener">
+            RÉSERVER MAINTENANT →
+          </a>
+        </div>
+
+        <!-- Aperçu page quand indisponible -->
+        <div class="page-preview" id="preview-spain" style="display:none;">
+          <div class="preview-header" onclick="togglePreview('spain')">
+            <span>📋 Ce que voit le moniteur</span>
+            <span id="preview-arrow-spain">▼</span>
+          </div>
+          <div class="preview-body" id="preview-text-spain"></div>
+        </div>
+      </div>
+
+      <!-- Sidebar droite -->
+      <div class="country-sidebar">
+
+        <!-- Contrôles -->
+        <div class="sidebar-card">
+          <div class="sidebar-card-title">Contrôles</div>
+          <div class="ctrl-row">
+            <button class="btn-start" id="btn-start-spain" onclick="startMonitor('spain')">▶ Démarrer</button>
+            <button class="btn-stop"  id="btn-stop-spain"  onclick="stopMonitor('spain')" disabled>■ Stop</button>
+          </div>
+          <div class="running-label" id="running-spain" style="display:none;">
+            <span class="running-dot-anim small"></span> Surveillance en cours
           </div>
         </div>
-        <div class="running-dot" id="running-spain">
-          <span></span> En cours
-        </div>
-        <div class="ctrl-mini">
-          <button class="btn-mini start" id="btn-start-spain" onclick="startMonitor('spain')">▶ Démarrer</button>
-          <button class="btn-mini stop"  id="btn-stop-spain"  onclick="stopMonitor('spain')" disabled>■ Stop</button>
-        </div>
-      </div>
 
-      <!-- Statut -->
-      <div class="monitor-status" id="status-spain">
-        <span class="status-icon-big" id="icon-spain">🔍</span>
-        <div class="status-badge unknown" id="badge-spain">EN ATTENTE</div>
-        <div class="status-message" id="msg-spain">Démarrez le monitoring pour vérifier</div>
-      </div>
-
-      <!-- Aperçu page (ce que voit le moniteur) -->
-      <div class="page-preview" id="preview-spain" style="display:none;">
-        <div class="preview-header" onclick="togglePreview('spain')">
-          <span>📋</span>
-          <span>Ce que voit le moniteur</span>
-          <span id="preview-arrow-spain" style="margin-left:auto;">▼</span>
+        <!-- Countdown -->
+        <div class="sidebar-card">
+          <div class="sidebar-card-title">Prochaine vérification</div>
+          <div class="countdown-row">
+            <span class="cd-timer" id="cd-timer-spain">–</span>
+            <div class="cd-bar-wrap"><div class="cd-bar" id="cd-bar-spain"></div></div>
+          </div>
+          <div class="cd-hint">Intervalle : 30–90 s (aléatoire)</div>
         </div>
-        <div class="preview-body" id="preview-text-spain"></div>
-      </div>
 
-      <!-- Footer : countdown + lien -->
-      <div class="monitor-footer">
-        <div class="countdown-row">
-          <span class="cd-label">Prochaine vérif.</span>
-          <span class="cd-timer" id="cd-timer-spain">–</span>
-          <div class="cd-bar-wrap">
-            <div class="cd-bar" id="cd-bar-spain"></div>
+        <!-- Mini stats -->
+        <div class="sidebar-card stats-mini">
+          <div class="stat-mini">
+            <div class="stat-mini-val" id="stat-checks-spain">0</div>
+            <div class="stat-mini-lbl">Vérifications</div>
+          </div>
+          <div class="stat-mini">
+            <div class="stat-mini-val green" id="stat-slots-spain">0</div>
+            <div class="stat-mini-lbl">Créneaux max</div>
+          </div>
+          <div class="stat-mini">
+            <div class="stat-mini-val small" id="stat-last-spain">–</div>
+            <div class="stat-mini-lbl">Dernière vérif.</div>
           </div>
         </div>
-        <a class="book-btn spain-link"
+
+        <!-- Lien réservation -->
+        <a class="book-link spain-link"
            href="https://algeria.blsspainglobal.com/DZA/account/login"
            target="_blank" rel="noopener"
            id="book-spain">
-          🔗 Réserver – BLS Spain Visa
+          🔗 Ouvrir BLS Spain Visa
         </a>
+
       </div>
+    </div><!-- /country-body -->
+  </div><!-- /section-spain -->
+
+
+  <!-- ================================================================
+       SÉPARATEUR CENTRAL
+       ================================================================ -->
+  <div class="center-divider">
+    <div class="center-divider-flags">🇪🇸 &nbsp;·&nbsp; 🇫🇷</div>
+  </div>
+
+
+  <!-- ================================================================
+       SECTION FRANCE
+       ================================================================ -->
+  <div class="country-section" id="section-france">
+
+    <!-- ── Séparateur drapeau ── -->
+    <div class="flag-divider france-divider">
+      <div class="flag-divider-line"></div>
+      <div class="flag-divider-label">
+        <span class="flag-divider-emoji">🇫🇷</span>
+        <span class="flag-divider-text">VISA FRANCE</span>
+        <span class="flag-divider-sub">Capago · Alger</span>
+      </div>
+      <div class="flag-divider-line"></div>
     </div>
 
-    <!-- ============================================================
-         FRANCE – Capago
-         ============================================================ -->
-    <div class="monitor-card" id="card-france">
+    <!-- ── Contenu France ── -->
+    <div class="country-body">
 
-      <!-- Entête pays -->
-      <div class="monitor-header france-hdr">
-        <div class="monitor-title-wrap">
-          <span class="monitor-flag">🇫🇷</span>
-          <div>
-            <div class="monitor-name">Visa France</div>
-            <div class="monitor-subtitle">Capago · Alger</div>
+      <!-- Statut principal -->
+      <div class="status-block" id="card-france">
+        <div class="status-center">
+          <span class="status-icon-xl" id="icon-france">🔍</span>
+          <div class="status-badge unknown" id="badge-france">EN ATTENTE</div>
+          <div class="status-msg" id="msg-france">Démarrez le monitoring</div>
+        </div>
+
+        <!-- ── PANNEAU CRÉNEAUX ── -->
+        <div class="slot-panel" id="slot-panel-france" style="display:none;">
+          <div class="slot-panel-header">
+            <span class="slot-alert-icon">🚨</span>
+            <span class="slot-alert-text">CRÉNEAU DÉTECTÉ !</span>
+          </div>
+          <div class="slot-panel-grid">
+            <div class="slot-info-block">
+              <div class="slot-info-label">Créneaux disponibles</div>
+              <div class="slot-info-value green" id="slot-count-france">–</div>
+            </div>
+            <div class="slot-info-block">
+              <div class="slot-info-label">Détecté à</div>
+              <div class="slot-info-value" id="slot-time-france">–</div>
+            </div>
+            <div class="slot-info-block">
+              <div class="slot-info-label">Durée vérification</div>
+              <div class="slot-info-value" id="slot-dur-france">–</div>
+            </div>
+            <div class="slot-info-block">
+              <div class="slot-info-label">Vérification n°</div>
+              <div class="slot-info-value" id="slot-checkno-france">–</div>
+            </div>
+          </div>
+          <div class="slot-source">
+            <div class="slot-source-label">Signal de détection</div>
+            <div class="slot-source-value" id="slot-msg-france">–</div>
+          </div>
+          <div class="slot-excerpt-block" id="slot-excerpt-wrap-france" style="display:none;">
+            <div class="slot-excerpt-label">📋 Ce que dit le site</div>
+            <div class="slot-excerpt-text" id="slot-excerpt-france"></div>
+          </div>
+          <a class="book-btn-big france-book"
+             href="https://fr-dz.capago.eu/rendezvous/"
+             target="_blank" rel="noopener">
+            RÉSERVER MAINTENANT →
+          </a>
+        </div>
+
+        <!-- Aperçu page quand indisponible -->
+        <div class="page-preview" id="preview-france" style="display:none;">
+          <div class="preview-header" onclick="togglePreview('france')">
+            <span>📋 Ce que voit le moniteur</span>
+            <span id="preview-arrow-france">▼</span>
+          </div>
+          <div class="preview-body" id="preview-text-france"></div>
+        </div>
+      </div>
+
+      <!-- Sidebar droite -->
+      <div class="country-sidebar">
+
+        <div class="sidebar-card">
+          <div class="sidebar-card-title">Contrôles</div>
+          <div class="ctrl-row">
+            <button class="btn-start" id="btn-start-france" onclick="startMonitor('france')">▶ Démarrer</button>
+            <button class="btn-stop"  id="btn-stop-france"  onclick="stopMonitor('france')" disabled>■ Stop</button>
+          </div>
+          <div class="running-label" id="running-france" style="display:none;">
+            <span class="running-dot-anim small"></span> Surveillance en cours
           </div>
         </div>
-        <div class="running-dot" id="running-france">
-          <span></span> En cours
-        </div>
-        <div class="ctrl-mini">
-          <button class="btn-mini start" id="btn-start-france" onclick="startMonitor('france')">▶ Démarrer</button>
-          <button class="btn-mini stop"  id="btn-stop-france"  onclick="stopMonitor('france')" disabled>■ Stop</button>
-        </div>
-      </div>
 
-      <!-- Statut -->
-      <div class="monitor-status" id="status-france">
-        <span class="status-icon-big" id="icon-france">🔍</span>
-        <div class="status-badge unknown" id="badge-france">EN ATTENTE</div>
-        <div class="status-message" id="msg-france">Démarrez le monitoring pour vérifier</div>
-      </div>
-
-      <!-- Aperçu page -->
-      <div class="page-preview" id="preview-france" style="display:none;">
-        <div class="preview-header" onclick="togglePreview('france')">
-          <span>📋</span>
-          <span>Ce que voit le moniteur</span>
-          <span id="preview-arrow-france" style="margin-left:auto;">▼</span>
+        <div class="sidebar-card">
+          <div class="sidebar-card-title">Prochaine vérification</div>
+          <div class="countdown-row">
+            <span class="cd-timer" id="cd-timer-france">–</span>
+            <div class="cd-bar-wrap"><div class="cd-bar" id="cd-bar-france"></div></div>
+          </div>
+          <div class="cd-hint">Intervalle : 30–90 s (aléatoire)</div>
         </div>
-        <div class="preview-body" id="preview-text-france"></div>
-      </div>
 
-      <!-- Footer : countdown + lien -->
-      <div class="monitor-footer">
-        <div class="countdown-row">
-          <span class="cd-label">Prochaine vérif.</span>
-          <span class="cd-timer" id="cd-timer-france">–</span>
-          <div class="cd-bar-wrap">
-            <div class="cd-bar" id="cd-bar-france"></div>
+        <div class="sidebar-card stats-mini">
+          <div class="stat-mini">
+            <div class="stat-mini-val" id="stat-checks-france">0</div>
+            <div class="stat-mini-lbl">Vérifications</div>
+          </div>
+          <div class="stat-mini">
+            <div class="stat-mini-val green" id="stat-slots-france">0</div>
+            <div class="stat-mini-lbl">Créneaux max</div>
+          </div>
+          <div class="stat-mini">
+            <div class="stat-mini-val small" id="stat-last-france">–</div>
+            <div class="stat-mini-lbl">Dernière vérif.</div>
           </div>
         </div>
-        <a class="book-btn france-link"
+
+        <a class="book-link france-link"
            href="https://fr-dz.capago.eu/rendezvous/"
            target="_blank" rel="noopener"
            id="book-france">
-          🔗 Réserver – Capago France
+          🔗 Ouvrir Capago France
         </a>
+
       </div>
-    </div>
+    </div><!-- /country-body -->
+  </div><!-- /section-france -->
 
-  </div><!-- /monitors-grid -->
 
-  <!-- ── STATS BAR ── -->
-  <div class="stats-bar">
-
-    <div class="stat-card">
-      <div class="stat-label">🇪🇸 Vérifications</div>
-      <div class="stat-value" id="stat-checks-spain">0</div>
-    </div>
-
-    <div class="stat-card">
-      <div class="stat-label">🇫🇷 Vérifications</div>
-      <div class="stat-value" id="stat-checks-france">0</div>
-    </div>
-
-    <div class="stat-card">
-      <div class="stat-label">🇪🇸 Créneaux max</div>
-      <div class="stat-value green" id="stat-slots-spain">0</div>
-    </div>
-
-    <div class="stat-card">
-      <div class="stat-label">🇫🇷 Créneaux max</div>
-      <div class="stat-value green" id="stat-slots-france">0</div>
-    </div>
-
-    <div class="stat-card">
-      <div class="stat-label">Dernière vérif. ESP</div>
-      <div class="stat-value small blue" id="stat-last-spain">–</div>
-    </div>
-
-    <div class="stat-card">
-      <div class="stat-label">Dernière vérif. FRA</div>
-      <div class="stat-value small blue" id="stat-last-france">–</div>
-    </div>
-
-  </div>
-
-  <!-- ── ONGLETS LOGS & HISTORIQUE ── -->
+  <!-- ================================================================
+       ONGLETS LOGS & HISTORIQUE
+       ================================================================ -->
   <div class="tabs-section">
-
     <div class="tabs-header">
-      <button class="tab-btn active" id="tab-btn-logs" onclick="switchTab('logs')">📡 Logs en direct</button>
-      <button class="tab-btn spain-tab" id="tab-btn-hist-spain" onclick="switchTab('hist-spain')">🇪🇸 Historique Espagne</button>
-      <button class="tab-btn france-tab" id="tab-btn-hist-france" onclick="switchTab('hist-france')">🇫🇷 Historique France</button>
+      <button class="tab-btn active"      id="tab-btn-logs"         onclick="switchTab('logs')">📡 Logs</button>
+      <button class="tab-btn spain-tab"   id="tab-btn-hist-spain"   onclick="switchTab('hist-spain')">🇪🇸 Historique Espagne</button>
+      <button class="tab-btn france-tab"  id="tab-btn-hist-france"  onclick="switchTab('hist-france')">🇫🇷 Historique France</button>
     </div>
 
-    <!-- Logs -->
     <div class="tab-content active" id="tab-logs">
       <div class="tab-actions">
         <button class="btn-secondary" onclick="clearLog()">Effacer</button>
@@ -205,19 +311,10 @@
       <div id="log-container" class="log-wrap"></div>
     </div>
 
-    <!-- Historique Espagne -->
     <div class="tab-content" id="tab-hist-spain">
       <div class="history-wrap">
         <table>
-          <thead>
-            <tr>
-              <th>Heure</th>
-              <th>Statut</th>
-              <th>Créneaux</th>
-              <th>Message</th>
-              <th>Durée</th>
-            </tr>
-          </thead>
+          <thead><tr><th>Heure</th><th>Statut</th><th>Créneaux</th><th>Message</th><th>Durée</th></tr></thead>
           <tbody id="history-tbody-spain">
             <tr><td colspan="5" style="text-align:center;color:#475569;padding:20px;">Démarrez le monitoring Espagne</td></tr>
           </tbody>
@@ -225,44 +322,29 @@
       </div>
     </div>
 
-    <!-- Historique France -->
     <div class="tab-content" id="tab-hist-france">
       <div class="history-wrap">
         <table>
-          <thead>
-            <tr>
-              <th>Heure</th>
-              <th>Statut</th>
-              <th>Créneaux</th>
-              <th>Message</th>
-              <th>Durée</th>
-            </tr>
-          </thead>
+          <thead><tr><th>Heure</th><th>Statut</th><th>Créneaux</th><th>Message</th><th>Durée</th></tr></thead>
           <tbody id="history-tbody-france">
             <tr><td colspan="5" style="text-align:center;color:#475569;padding:20px;">Démarrez le monitoring France</td></tr>
           </tbody>
         </table>
       </div>
     </div>
+  </div>
 
-  </div><!-- /tabs-section -->
 
   <!-- ================================================================
        NOTIFICATIONS
        ================================================================ -->
   <div class="notif-panel">
-
     <div class="notif-panel-header" onclick="toggleSection('notif-panel-body')">
-      <div class="notif-panel-title">
-        🔔 Notifications
-        <span style="font-size:0.7rem;font-weight:400;color:#64748b;">— Telegram, SMS, WhatsApp</span>
-      </div>
+      <div class="notif-panel-title">🔔 Notifications</div>
       <span id="notif-panel-body-arrow">▼</span>
     </div>
-
     <div class="notif-panel-body hidden" id="notif-panel-body">
 
-      <!-- ── Telegram (recommandé) ── -->
       <div class="notif-section" style="border-color:#2563eb;">
         <div class="notif-section-header" style="background:#0e1f3a;" onclick="toggleSection('tg-section')">
           <span class="notif-section-title" style="color:#93c5fd;">
@@ -272,151 +354,66 @@
           <span id="tg-section-arrow">▼</span>
         </div>
         <div id="tg-section" class="notif-section-body hidden">
-          <div id="tg-status" class="config-status nok">
-            <span id="tg-status-icon">✗</span>
-            <span id="tg-status-text">Bot non configuré</span>
-          </div>
+          <div id="tg-status" class="config-status nok"><span id="tg-status-icon">✗</span><span id="tg-status-text">Bot non configuré</span></div>
           <div style="padding:12px;background:#060d1a;border:1px solid #1e3a5f;border-radius:8px;font-size:0.76rem;color:#93c5fd;line-height:1.9;">
-            <strong>Setup en 2 min :</strong><br/>
-            1. Telegram → chercher <strong>@BotFather</strong> → <code style="background:#0a1628;padding:1px 5px;border-radius:3px;">/newbot</code> → copier le <strong>token</strong><br/>
+            <strong>Setup 2 min :</strong><br/>
+            1. Telegram → <strong>@BotFather</strong> → <code style="background:#0a1628;padding:1px 5px;border-radius:3px;">/newbot</code> → copier le <strong>token</strong><br/>
             2. Ouvrir votre bot → envoyer un message<br/>
-            3. Aller sur <code style="background:#0a1628;padding:1px 5px;border-radius:3px;">https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code> → copier le <strong>chat_id</strong>
+            3. <code style="background:#0a1628;padding:1px 5px;border-radius:3px;">https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code> → copier le <strong>chat_id</strong>
           </div>
-          <div class="toggle-row">
-            <span class="toggle-label">Activer les alertes Telegram</span>
-            <label class="toggle"><input type="checkbox" id="tg-enabled" /><span class="toggle-slider"></span></label>
-          </div>
+          <div class="toggle-row"><span class="toggle-label">Activer alertes Telegram</span><label class="toggle"><input type="checkbox" id="tg-enabled"/><span class="toggle-slider"></span></label></div>
+          <div class="form-row"><label class="form-label">Bot Token</label><input id="cfg-tg-token" class="form-input" type="password" placeholder="123456789:ABCdef..."/></div>
           <div class="form-row">
-            <label class="form-label">Bot Token</label>
-            <input id="cfg-tg-token" class="form-input" type="password" placeholder="123456789:ABCdefGhIjklMnoPQRstuvWXyz" />
-          </div>
-          <div class="form-row">
-            <label class="form-label">Chat IDs à notifier</label>
+            <label class="form-label">Chat IDs</label>
             <div id="tg-tags" class="number-tags"></div>
-            <div class="add-number-row">
-              <input id="tg-new-id" class="form-input" type="text" placeholder="123456789" />
-              <button class="btn-add" onclick="addTgId()">+ Ajouter</button>
-            </div>
-            <span class="form-hint">Numérique · positif = utilisateur · négatif = groupe</span>
+            <div class="add-number-row"><input id="tg-new-id" class="form-input" type="text" placeholder="123456789"/><button class="btn-add" onclick="addTgId()">+ Ajouter</button></div>
           </div>
-          <div class="test-row">
-            <button class="btn-test" onclick="testNotif('telegram', 'all')" style="width:100%;">
-              Envoyer un message test Telegram
-            </button>
-            <span id="tg-test-result" class="test-result"></span>
-          </div>
+          <div class="test-row"><button class="btn-test" onclick="testNotif('telegram','all')" style="width:100%;">Envoyer message test Telegram</button><span id="tg-test-result" class="test-result"></span></div>
         </div>
       </div>
 
-      <!-- ── Credentials Twilio ── -->
       <div class="notif-section">
-        <div class="notif-section-header" onclick="toggleSection('twilio-creds')">
-          <span class="notif-section-title">🔑 Credentials Twilio (SMS / WhatsApp)</span>
-          <span id="twilio-creds-arrow">▼</span>
-        </div>
+        <div class="notif-section-header" onclick="toggleSection('twilio-creds')"><span class="notif-section-title">🔑 Credentials Twilio</span><span id="twilio-creds-arrow">▼</span></div>
         <div id="twilio-creds" class="notif-section-body hidden">
-          <div id="twilio-status" class="config-status nok">
-            <span id="twilio-status-icon">✗</span>
-            <span id="twilio-status-text">Credentials non configurés</span>
-          </div>
-          <div class="form-row">
-            <label class="form-label">Account SID</label>
-            <input id="cfg-sid" class="form-input" type="text" placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" />
-          </div>
-          <div class="form-row">
-            <label class="form-label">Auth Token</label>
-            <input id="cfg-token" class="form-input" type="password" placeholder="••••••••••••••••" />
-          </div>
-          <div class="form-row">
-            <label class="form-label">Numéro Twilio SMS (From)</label>
-            <input id="cfg-from-sms" class="form-input" type="text" placeholder="+15551234567" />
-          </div>
-          <div class="form-row">
-            <label class="form-label">Numéro WhatsApp Sandbox (From)</label>
-            <input id="cfg-from-wa" class="form-input" type="text" value="whatsapp:+14155238886" />
-          </div>
+          <div id="twilio-status" class="config-status nok"><span id="twilio-status-icon">✗</span><span id="twilio-status-text">Non configuré</span></div>
+          <div class="form-row"><label class="form-label">Account SID</label><input id="cfg-sid" class="form-input" type="text" placeholder="ACxxxxxxxx..."/></div>
+          <div class="form-row"><label class="form-label">Auth Token</label><input id="cfg-token" class="form-input" type="password" placeholder="••••••••"/></div>
+          <div class="form-row"><label class="form-label">Numéro SMS (From)</label><input id="cfg-from-sms" class="form-input" type="text" placeholder="+15551234567"/></div>
+          <div class="form-row"><label class="form-label">WhatsApp (From)</label><input id="cfg-from-wa" class="form-input" type="text" value="whatsapp:+14155238886"/></div>
         </div>
       </div>
 
-      <!-- ── SMS ── -->
       <div class="notif-section">
-        <div class="notif-section-header" onclick="toggleSection('sms-section')">
-          <span class="notif-section-title">📱 SMS</span>
-          <span id="sms-section-arrow">▼</span>
-        </div>
+        <div class="notif-section-header" onclick="toggleSection('sms-section')"><span class="notif-section-title">📱 SMS</span><span id="sms-section-arrow">▼</span></div>
         <div id="sms-section" class="notif-section-body hidden">
-          <div class="toggle-row">
-            <span class="toggle-label">Activer les alertes SMS</span>
-            <label class="toggle"><input type="checkbox" id="sms-enabled" /><span class="toggle-slider"></span></label>
-          </div>
-          <div class="form-row">
-            <label class="form-label">Numéros à notifier</label>
-            <div id="sms-tags" class="number-tags"></div>
-            <div class="add-number-row">
-              <input id="sms-new-number" class="form-input" type="tel" placeholder="+213XXXXXXXXX" />
-              <button class="btn-add" onclick="addNumber('sms')">+ Ajouter</button>
-            </div>
-            <span class="form-hint">Format international : +213 pour l'Algérie</span>
-          </div>
-          <div class="test-row">
-            <input id="sms-test-number" class="form-input" type="tel" placeholder="+213XXXXXXXXX" style="flex:1;min-width:160px;" />
-            <button class="btn-test" onclick="testNotif('sms')">Tester SMS</button>
-            <span id="sms-test-result" class="test-result"></span>
-          </div>
+          <div class="toggle-row"><span class="toggle-label">Activer SMS</span><label class="toggle"><input type="checkbox" id="sms-enabled"/><span class="toggle-slider"></span></label></div>
+          <div class="form-row"><label class="form-label">Numéros</label><div id="sms-tags" class="number-tags"></div><div class="add-number-row"><input id="sms-new-number" class="form-input" type="tel" placeholder="+213XXXXXXXXX"/><button class="btn-add" onclick="addNumber('sms')">+ Ajouter</button></div></div>
+          <div class="test-row"><input id="sms-test-number" class="form-input" type="tel" placeholder="+213XXXXXXXXX" style="flex:1;min-width:140px;"/><button class="btn-test" onclick="testNotif('sms')">Tester</button><span id="sms-test-result" class="test-result"></span></div>
         </div>
       </div>
 
-      <!-- ── WhatsApp ── -->
       <div class="notif-section">
-        <div class="notif-section-header" onclick="toggleSection('wa-section')">
-          <span class="notif-section-title">💬 WhatsApp</span>
-          <span id="wa-section-arrow">▼</span>
-        </div>
+        <div class="notif-section-header" onclick="toggleSection('wa-section')"><span class="notif-section-title">💬 WhatsApp</span><span id="wa-section-arrow">▼</span></div>
         <div id="wa-section" class="notif-section-body hidden">
-          <div class="toggle-row">
-            <span class="toggle-label">Activer les alertes WhatsApp</span>
-            <label class="toggle"><input type="checkbox" id="wa-enabled" /><span class="toggle-slider"></span></label>
-          </div>
-          <div style="padding:10px 12px;background:#0d1f0d;border:1px solid #2d5a2d;border-radius:8px;font-size:0.74rem;color:#86efac;line-height:1.7;">
-            Envoyez <code style="background:#071407;padding:1px 4px;border-radius:3px;">join &lt;mot-sandbox&gt;</code>
-            au <strong>+1 (415) 523-8886</strong> sur WhatsApp avant de recevoir des messages.
-          </div>
-          <div class="form-row">
-            <label class="form-label">Numéros à notifier</label>
-            <div id="wa-tags" class="number-tags"></div>
-            <div class="add-number-row">
-              <input id="wa-new-number" class="form-input" type="tel" placeholder="+213XXXXXXXXX" />
-              <button class="btn-add" onclick="addNumber('wa')">+ Ajouter</button>
-            </div>
-          </div>
-          <div class="test-row">
-            <input id="wa-test-number" class="form-input" type="tel" placeholder="+213XXXXXXXXX" style="flex:1;min-width:160px;" />
-            <button class="btn-test" onclick="testNotif('whatsapp')">Tester WhatsApp</button>
-            <span id="wa-test-result" class="test-result"></span>
-          </div>
+          <div class="toggle-row"><span class="toggle-label">Activer WhatsApp</span><label class="toggle"><input type="checkbox" id="wa-enabled"/><span class="toggle-slider"></span></label></div>
+          <div class="form-row"><label class="form-label">Numéros</label><div id="wa-tags" class="number-tags"></div><div class="add-number-row"><input id="wa-new-number" class="form-input" type="tel" placeholder="+213XXXXXXXXX"/><button class="btn-add" onclick="addNumber('wa')">+ Ajouter</button></div></div>
+          <div class="test-row"><input id="wa-test-number" class="form-input" type="tel" placeholder="+213XXXXXXXXX" style="flex:1;min-width:140px;"/><button class="btn-test" onclick="testNotif('whatsapp')">Tester</button><span id="wa-test-result" class="test-result"></span></div>
         </div>
       </div>
 
-      <!-- Sauvegarder -->
-      <button class="btn-save-notif" onclick="saveNotifSettings()">
-        💾 Sauvegarder la configuration
-      </button>
-      <div id="save-result" style="text-align:center;font-size:0.76rem;margin-top:6px;min-height:18px;color:#64748b;"></div>
+      <button class="btn-save-notif" onclick="saveNotifSettings()">💾 Sauvegarder</button>
+      <div id="save-result" style="text-align:center;font-size:0.75rem;margin-top:6px;min-height:18px;color:#64748b;"></div>
+    </div>
+  </div>
 
-    </div><!-- /notif-panel-body -->
-  </div><!-- /notif-panel -->
-
-  <!-- Footer -->
   <div class="footer-info">
-    Ce moniteur vérifie la disponibilité sans automatiser de réservation ·
-    Intervalle aléatoire 30–90 s pour respecter les serveurs ·
-    Conforme aux CGU BLS Spain Visa et Capago
+    Surveillance uniquement – aucune automatisation de réservation ·
+    Intervalle aléatoire 30–90 s · BLS Spain Visa + Capago France
   </div>
 
 </main>
 
 <div id="toasts"></div>
-
 <script src="app.js"></script>
 </body>
 </html>
