@@ -205,14 +205,11 @@ async def save_notif_settings(body: dict):
             if key == "twilio_auth_token" and "****" in str(val):
                 continue
             current[key] = val
-    # Ne pas écraser le mot de passe masqué
-    if "email_smtp_password" in body and body["email_smtp_password"] == "****":
-        body.pop("email_smtp_password")
-
     for key in allowed_keys:
         if key in body:
             val = body[key]
-            if key == "twilio_auth_token" and "****" in str(val):
+            # Ne jamais écraser une vraie valeur par une version masquée
+            if "****" in str(val):
                 continue
             current[key] = val
     if store.save(current):
