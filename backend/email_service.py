@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
 SENDER_NAME   = "VisaMonitor"
-SENDER_EMAIL  = "visaMonitor.alertes@gmail.com"   # affiché comme expéditeur
+SENDER_EMAIL  = "tv5z7fd7xd@privaterelay.appleid.com"   # expéditeur vérifié sur ce compte Brevo
 
 
 def send_email(
