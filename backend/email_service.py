@@ -15,8 +15,8 @@ from typing import List
 logger = logging.getLogger(__name__)
 
 BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
-SENDER_NAME   = "VisaMonitor"
-SENDER_EMAIL  = "tv5z7fd7xd@privaterelay.appleid.com"   # expéditeur vérifié sur ce compte Brevo
+SENDER_NAME   = "VisaMonitor Alger"
+SENDER_EMAIL  = "ali.habarek@outlook.fr"   # expéditeur vérifié sur Brevo
 
 
 def send_email(
