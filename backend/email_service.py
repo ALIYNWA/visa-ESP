@@ -1,80 +1,70 @@
 """
 Service d'envoi d'emails — VisaMonitor
+- Envoi via Brevo API (gratuit, 300 emails/jour, aucun mot de passe perso)
 - Alerte immédiate quand un créneau est détecté (Espagne)
 - Rapport toutes les 3h avec les stats des vérifications
 - Templates HTML riches
 """
-import smtplib
+import json
 import logging
+import urllib.request
+import urllib.error
 from datetime import datetime, timezone
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from typing import List, Optional
+from typing import List
 
 logger = logging.getLogger(__name__)
 
-
-def _smtp_host_for(address: str) -> tuple[str, int]:
-    """Détecte le serveur SMTP en fonction de l'adresse email."""
-    domain = address.split("@")[-1].lower()
-    if "gmail" in domain:
-        return "smtp.gmail.com", 587
-    if "outlook" in domain or "hotmail" in domain or "live" in domain or "msn" in domain:
-        return "smtp-mail.outlook.com", 587
-    if "yahoo" in domain:
-        return "smtp.mail.yahoo.com", 587
-    # Par défaut Gmail
-    return "smtp.gmail.com", 587
+BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
+SENDER_NAME   = "VisaMonitor"
+SENDER_EMAIL  = "visaMonitor.alertes@gmail.com"   # affiché comme expéditeur
 
 
 def send_email(
-    smtp_user: str,
-    smtp_password: str,
+    api_key: str,
     recipients: List[str],
     subject: str,
     html_body: str,
-    smtp_host: str = "",
-    smtp_port: int = 587,
+    **kwargs,          # ignore smtp_* si appelé avec anciens params
 ) -> tuple[bool, str]:
-    """Envoie un email HTML via SMTP."""
-    if not smtp_user or not smtp_password:
-        return False, "Email expéditeur non configuré"
+    """Envoie un email HTML via l'API Brevo (aucun mot de passe perso requis)."""
+    if not api_key:
+        return False, "Clé API Brevo non configurée"
     if not recipients:
         return False, "Aucun destinataire configuré"
 
-    # Auto-détection SMTP
-    if not smtp_host:
-        smtp_host, smtp_port = _smtp_host_for(smtp_user)
+    payload = {
+        "sender":      {"name": SENDER_NAME, "email": SENDER_EMAIL},
+        "to":          [{"email": r} for r in recipients],
+        "subject":     subject,
+        "htmlContent": html_body,
+    }
 
     try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"]    = f"VisaMonitor <{smtp_user}>"
-        msg["To"]      = ", ".join(recipients)
-        msg.attach(MIMEText(html_body, "html", "utf-8"))
+        req = urllib.request.Request(
+            BREVO_API_URL,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "accept":       "application/json",
+                "api-key":      api_key,
+                "content-type": "application/json",
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            if resp.status in (200, 201, 202):
+                logger.info(f"Email Brevo envoyé à {len(recipients)} destinataire(s)")
+                return True, f"Email envoyé à : {', '.join(recipients)}"
+            return False, f"Brevo status {resp.status}"
 
-        with smtplib.SMTP(smtp_host, smtp_port, timeout=20) as server:
-            server.ehlo()
-            server.starttls()
-            server.ehlo()
-            server.login(smtp_user, smtp_password)
-            server.sendmail(smtp_user, recipients, msg.as_string())
-
-        logger.info(f"Email envoyé à {len(recipients)} destinataire(s)")
-        return True, f"Email envoyé à : {', '.join(recipients)}"
-
-    except smtplib.SMTPAuthenticationError:
-        msg = "Erreur d'authentification SMTP — vérifiez le mot de passe d'application"
-        logger.error(msg)
-        return False, msg
-    except smtplib.SMTPException as e:
-        msg = f"Erreur SMTP : {e}"
-        logger.error(msg)
-        return False, msg
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="ignore")
+        logger.error(f"Brevo HTTP {e.code}: {body}")
+        if e.code == 401:
+            return False, "Clé API invalide — vérifiez votre clé Brevo"
+        return False, f"Erreur Brevo {e.code}: {body[:200]}"
     except Exception as e:
-        msg = f"Erreur inattendue : {e}"
-        logger.error(msg)
-        return False, msg
+        logger.error(f"Erreur email : {e}")
+        return False, str(e)
 
 
 # ──────────────────────────────────────────────────────────────────────

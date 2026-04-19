@@ -13,12 +13,9 @@ logger = logging.getLogger(__name__)
 STORE_PATH = Path(__file__).parent / "notif_settings.json"
 
 DEFAULT_SETTINGS = {
-    # Email
+    # Email (via Brevo — gratuit, sans mot de passe perso)
     "email_enabled": False,
-    "email_smtp_user": "",       # ex: moncompte@gmail.com
-    "email_smtp_password": "",   # mot de passe d'application
-    "email_smtp_host": "",       # auto-détecté si vide
-    "email_smtp_port": 587,
+    "email_brevo_api_key": "",   # clé API Brevo (xkeysib-...)
     "email_recipients": [],      # ex: ["ali.habarek@outlook.fr", "habarekyacine079@gmail.com"]
     "email_report_enabled": True,
     "email_report_interval_hours": 3,
@@ -71,15 +68,15 @@ def get_masked(data: dict) -> dict:
     if masked.get("telegram_bot_token"):
         tok = masked["telegram_bot_token"]
         masked["telegram_bot_token"] = tok[:6] + "****" + tok[-4:] if len(tok) > 10 else "****"
-    if masked.get("email_smtp_password"):
-        masked["email_smtp_password"] = "****"
+    if masked.get("email_brevo_api_key"):
+        key = masked["email_brevo_api_key"]
+        masked["email_brevo_api_key"] = key[:8] + "****" + key[-4:] if len(key) > 12 else "****"
     return masked
 
 
 def email_configured(data: dict) -> bool:
     return bool(
-        data.get("email_smtp_user", "").strip() and
-        data.get("email_smtp_password", "").strip() and
+        data.get("email_brevo_api_key", "").strip() and
         data.get("email_recipients", [])
     )
 

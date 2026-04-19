@@ -63,13 +63,10 @@ async def _report_scheduler():
             now = datetime.now(timezone.utc)
             subject, html = build_report_email(interval_h, spain_stats, france_stats, now)
             ok, msg = send_email(
-                smtp_user=cfg["email_smtp_user"],
-                smtp_password=cfg["email_smtp_password"],
+                api_key=cfg["email_brevo_api_key"],
                 recipients=cfg["email_recipients"],
                 subject=subject,
                 html_body=html,
-                smtp_host=cfg.get("email_smtp_host", ""),
-                smtp_port=cfg.get("email_smtp_port", 587),
             )
             logger.info(f"Rapport email : {msg}")
         except Exception as e:
@@ -193,8 +190,7 @@ async def get_notif_settings():
 @app.post("/api/notifications/settings")
 async def save_notif_settings(body: dict):
     allowed_keys = {
-        "email_enabled", "email_smtp_user", "email_smtp_password",
-        "email_smtp_host", "email_smtp_port", "email_recipients",
+        "email_enabled", "email_brevo_api_key", "email_recipients",
         "email_report_enabled", "email_report_interval_hours",
         "telegram_enabled", "telegram_bot_token", "telegram_chat_ids",
         "sms_enabled", "sms_numbers",
@@ -258,19 +254,17 @@ async def test_email(body: dict):
     cfg = store.load()
 
     # Mettre à jour temporairement avec les valeurs du body
-    smtp_user     = body.get("smtp_user", cfg.get("email_smtp_user", ""))
-    smtp_password = body.get("smtp_password", cfg.get("email_smtp_password", ""))
-    recipients    = body.get("recipients", cfg.get("email_recipients", []))
+    api_key    = body.get("api_key", cfg.get("email_brevo_api_key", ""))
+    recipients = body.get("recipients", cfg.get("email_recipients", []))
 
-    if not smtp_user or not smtp_password:
-        raise HTTPException(400, "Email expéditeur et mot de passe requis")
+    if not api_key:
+        raise HTTPException(400, "Clé API Brevo manquante")
     if not recipients:
         raise HTTPException(400, "Aucun destinataire")
 
     subject, html = build_test_email(recipients)
     ok, msg = send_email(
-        smtp_user=smtp_user,
-        smtp_password=smtp_password,
+        api_key=api_key,
         recipients=recipients,
         subject=subject,
         html_body=html,
@@ -291,13 +285,10 @@ async def send_manual_report():
     interval_h = cfg.get("email_report_interval_hours", 3)
     subject, html = build_report_email(interval_h, spain_stats, france_stats, now)
     ok, msg = send_email(
-        smtp_user=cfg["email_smtp_user"],
-        smtp_password=cfg["email_smtp_password"],
+        api_key=cfg["email_brevo_api_key"],
         recipients=cfg["email_recipients"],
         subject=subject,
         html_body=html,
-        smtp_host=cfg.get("email_smtp_host", ""),
-        smtp_port=cfg.get("email_smtp_port", 587),
     )
     return {"success": ok, "message": msg}
 

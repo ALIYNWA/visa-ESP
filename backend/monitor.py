@@ -234,13 +234,10 @@ class Monitor:
                 instructions=instructions_spain,
             )
             ok, msg = send_email(
-                smtp_user=cfg["email_smtp_user"],
-                smtp_password=cfg["email_smtp_password"],
+                api_key=cfg["email_brevo_api_key"],
                 recipients=cfg["email_recipients"],
                 subject=subject,
                 html_body=html,
-                smtp_host=cfg.get("email_smtp_host", ""),
-                smtp_port=cfg.get("email_smtp_port", 587),
             )
             if ok:
                 await self._broadcast_log(f"[{self.label}] Email alerte envoye a {len(cfg['email_recipients'])} destinataire(s)")

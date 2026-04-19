@@ -427,15 +427,14 @@ function removeEmailAddr(i) { emailAddrs.splice(i,1); renderEmailTags(); }
 
 async function testEmail() {
   const resultEl = $("email-test-result");
-  const user = $("cfg-smtp-user").value.trim();
-  const pass = $("cfg-smtp-password").value.trim();
-  if (!user || !pass) { showToast("Renseignez l'expéditeur et le mot de passe d'abord", "error"); return; }
+  const apiKey = $("cfg-brevo-key").value.trim();
+  if (!apiKey) { showToast("Entrez votre clé API Brevo d'abord", "error"); return; }
   if (emailAddrs.length === 0) { showToast("Ajoutez au moins un destinataire", "error"); return; }
   resultEl.className="test-result"; resultEl.textContent="Envoi en cours..."; resultEl.style.display="block"; resultEl.style.background="transparent"; resultEl.style.color="#94a3b8";
   try {
     const r = await fetch(`${API}/api/notifications/test-email`, {
       method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({ smtp_user: user, smtp_password: pass, recipients: [...emailAddrs] }),
+      body: JSON.stringify({ api_key: apiKey, recipients: [...emailAddrs] }),
     });
     const d = await r.json();
     if (d.success) { resultEl.className="test-result ok"; resultEl.textContent="Email envoyé ! "+d.message; showToast("Email de test envoyé !","success"); }
@@ -508,8 +507,7 @@ async function loadNotifSettings() {
     if (cfg.email_configured) { $("email-status").className="config-status ok"; $("email-status-icon").textContent="✓"; $("email-status-text").textContent=`Email configuré (${(cfg.email_recipients||[]).length} destinataire(s))`; }
     $("email-enabled").checked = cfg.email_enabled || false;
     $("email-report-enabled").checked = cfg.email_report_enabled !== false;
-    if (cfg.email_smtp_user) $("cfg-smtp-user").value = cfg.email_smtp_user;
-    if (cfg.email_smtp_password && cfg.email_smtp_password !== "****") $("cfg-smtp-password").value = cfg.email_smtp_password;
+    if (cfg.email_brevo_api_key) $("cfg-brevo-key").value = cfg.email_brevo_api_key;
     emailAddrs.length=0; (cfg.email_recipients||[]).forEach(a=>emailAddrs.push(a)); renderEmailTags();
 
     if (cfg.telegram_configured) { $("tg-status").className="config-status ok"; $("tg-status-icon").textContent="✓"; $("tg-status-text").textContent="Bot configuré"; }
@@ -538,8 +536,7 @@ async function saveNotifSettings() {
       method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({
         email_enabled:$("email-enabled").checked,
-        email_smtp_user:$("cfg-smtp-user").value.trim(),
-        email_smtp_password:$("cfg-smtp-password").value.trim()||"****",
+        email_brevo_api_key:$("cfg-brevo-key").value.trim(),
         email_recipients:[...emailAddrs],
         email_report_enabled:$("email-report-enabled").checked,
         email_report_interval_hours:3,

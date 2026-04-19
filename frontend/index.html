@@ -312,8 +312,10 @@
           <div id="email-status" class="config-status nok"><span id="email-status-icon">✗</span><span id="email-status-text">Email non configuré</span></div>
 
           <div style="padding:11px;background:#060d1a;border:1px solid #065f46;border-radius:8px;font-size:0.76rem;color:#6ee7b7;line-height:2;">
-            <strong>Gmail :</strong> Paramètres → Sécurité → Validation 2 étapes → Mots de passe d'application → Générer<br/>
-            <strong>Outlook :</strong> account.microsoft.com → Sécurité → Mot de passe d'application
+            <strong>Brevo est gratuit</strong> — 300 emails/jour, aucun mot de passe perso requis.<br/>
+            1. Va sur <strong>brevo.com</strong> → Crée un compte gratuit<br/>
+            2. Menu → <strong>SMTP &amp; API</strong> → <strong>Clés API</strong> → <strong>Créer une clé API</strong><br/>
+            3. Copie la clé et colle-la ci-dessous
           </div>
 
           <div class="toggle-row">
@@ -321,12 +323,8 @@
             <label class="toggle"><input type="checkbox" id="email-enabled"/><span class="toggle-slider"></span></label>
           </div>
           <div class="form-row">
-            <label class="form-label">Adresse email expéditeur</label>
-            <input id="cfg-smtp-user" class="form-input" type="email" placeholder="moncompte@gmail.com"/>
-          </div>
-          <div class="form-row">
-            <label class="form-label">Mot de passe d'application</label>
-            <input id="cfg-smtp-password" class="form-input" type="password" placeholder="xxxx xxxx xxxx xxxx"/>
+            <label class="form-label">Clé API Brevo</label>
+            <input id="cfg-brevo-key" class="form-input" type="password" placeholder="xkeysib-..."/>
           </div>
           <div class="form-row">
             <label class="form-label">Destinataires (adresses email)</label>
