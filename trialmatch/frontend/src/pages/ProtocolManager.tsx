@@ -3,8 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { protocolsApi } from "@/api/protocols";
 import { ProtocolForm } from "@/components/ProtocolForm";
 import { CriterionList } from "@/components/CriterionList";
-import { DocumentManager } from "@/components/DocumentManager";
 import { VisitsSchedule } from "@/components/VisitsSchedule";
+import { ProtocolDocumentImporter } from "@/components/ProtocolDocumentImporter";
 import type { CreateProtocolPayload, Protocol } from "@/types";
 
 type DetailTab = "overview" | "criteria" | "documents" | "visits";
@@ -365,7 +365,10 @@ export function ProtocolManager() {
               )}
 
               {detailTab === "documents" && (
-                <DocumentManager protocolId={selected.id} />
+                <ProtocolDocumentImporter
+                  protocol={selected}
+                  onUpdated={p => { setSelected(p); }}
+                />
               )}
             </div>
           </div>

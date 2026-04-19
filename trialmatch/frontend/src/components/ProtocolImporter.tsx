@@ -6,7 +6,7 @@ import { useRef, useState } from "react";
 import type { CreateProtocolPayload, CriterionType, ProtocolPhase, StudyDrug, StudyVisit, StudyExam } from "@/types";
 
 // ── PDF.js dynamic import ─────────────────────────────────────────────────────
-async function extractTextFromPDF(file: File): Promise<string> {
+export async function extractTextFromPDF(file: File): Promise<string> {
   const pdfjs = await import("pdfjs-dist");
 
   // Use local worker bundled with pdfjs-dist (no CDN dependency — 100% on-premise)
@@ -244,8 +244,6 @@ function extractVisits(text: string): StudyVisit[] {
 }
 
 export function parseProtocolText(text: string): Partial<CreateProtocolPayload> {
-  const lower = text.toLowerCase();
-
   // ── Title ──
   let title = "";
   const titlePatterns = [

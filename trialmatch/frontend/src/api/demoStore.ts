@@ -171,8 +171,9 @@ const SEED_PROTOCOLS: Protocol[] = [
   },
 ];
 
-const SEED_PATIENT_ID  = "22222222-0000-0000-0000-000000000001";
+const SEED_PATIENT_ID    = "22222222-0000-0000-0000-000000000001";
 const AVANZAR_PATIENT_ID = "22222222-0000-0000-0000-000000000002";
+const SERENA4_PATIENT_ID = "22222222-0000-0000-0000-000000000003";
 
 const SEED_PATIENTS: Patient[] = [
   {
@@ -191,6 +192,52 @@ const SEED_PATIENTS: Patient[] = [
       // Intentionnellement incomplet : pas de bilan moléculaire, pas de tissu archivé,
       // pas de sérologies VHB/VHC, pas de statut métastases cérébrales → points de vigilance
       notes_libres: "",
+    },
+    created_by: "00000000-0000-0000-0000-000000000001",
+    created_at: now(),
+  },
+  {
+    // ── Patient spécifique SERENA-4 ──
+    // Femme, 54 ans, post-ménopausée, cancer du sein ER+/HER2- métastatique de novo
+    // Profil construit pour illustrer l'éligibilité à SERENA-4 (NCT04711252)
+    id: SERENA4_PATIENT_ID,
+    pseudonym: "SERENA4-P-001",
+    context: {
+      age: 54,
+      sexe: "F",
+      diagnostic_principal: "Cancer du sein ER+ HER2- metastatique (stade IV de novo)",
+      stade: "IV",
+      ecog_performance_status: 0,
+      traitements_en_cours: [],
+      medicaments_concomitants: ["Alendronate 70mg/sem (metastases osseuses)", "Ramipril 5mg/j (HTA)"],
+      biologie: {
+        creatinine: "0.7 mg/dL",
+        hb: "12.8 g/dL",
+        neutrophiles: "3.2 G/L",
+        plaquettes: "210 G/L",
+        ALAT: "28 UI/L",
+        ASAT: "24 UI/L",
+        bilirubine_totale: "0.9 mg/dL",
+      },
+      antecedents: [
+        "HTA traitee sous ramipril",
+        "Mastectomie droite 2018 pour cancer du sein stade I (T1N0M0) traite par tumorectomie + radiotherapie — pas de chimiotherapie adjuvante",
+        "Hormonotherapie adjuvante par tamoxifene 5 ans terminee en 2023 (>24 mois avant inclusion)",
+      ],
+      // Données d'imagerie et biomarqueurs
+      imagerie: {
+        TDM_TAP: "Metastases hepatiques mesurables : lesion segment VI 28mm (cible RECIST), segment IV 18mm. Metastases osseuses : corps vertebraux L2 L4, arc costal droit (lyse). Absence metastases cerebrales.",
+        scintigraphie_osseuse: "Foyers hyperfixants L2 L4 et arc costal D6 en accord avec metastases connues",
+      },
+      biomarqueurs: {
+        RE: "Positif 95% (score Allred 8/8)",
+        RP: "Positif 60%",
+        HER2: "Negatif (IHC 1+, FISH non amplifiee)",
+        Ki67: "32%",
+        statut_menopausique: "Post-menopausee (menopause naturelle 2019, FSH 68 UI/L, E2 < 10 pg/mL)",
+      },
+      // Points de vigilance pour éligibilité SERENA-4
+      notes_libres: "Patiente potentiellement eligible SERENA-4. Points a verifier : (1) Absence traitement systemique anterieur pour maladie metastatique confirme. (2) Recidive >24 mois apres fin tamoxifene adjuvant : OK (tamoxifene termine 2023, >12 mois). (3) Pas d exposition anterieure a inhibiteur aromatase ou CDK4/6. (4) Pas de crise viscerale. (5) Pas de metastases cerebrales. (6) ECOG 0. (7) Fonctions organiques normales. Exclure : absence infection VHB VHC a confirmer par serologies.",
     },
     created_by: "00000000-0000-0000-0000-000000000001",
     created_at: now(),

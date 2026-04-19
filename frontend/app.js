@@ -404,7 +404,60 @@ function updateWsBadge(connected) {
 }
 
 // ----------------------------------------------------------------
-// Notification settings
+// Notification settings — Email
+// ----------------------------------------------------------------
+const emailAddrs = [];
+
+function renderEmailTags() {
+  $("email-tags").innerHTML = emailAddrs.map((addr,i) =>
+    `<span class="number-tag" style="background:#041a10;border-color:#059669;color:#6ee7b7;">
+      ${escHtml(addr)}<button onclick="removeEmailAddr(${i})">✕</button>
+    </span>`
+  ).join("") || '<span style="color:#374151;font-size:0.76rem;">Aucune adresse</span>';
+}
+
+function addEmailAddr() {
+  const raw = $("email-new-addr").value.trim();
+  if (!raw) return;
+  if (!raw.includes("@")) { showToast("Adresse email invalide", "error"); return; }
+  if (emailAddrs.includes(raw)) { showToast("Adresse déjà présente", "info"); return; }
+  emailAddrs.push(raw); $("email-new-addr").value = ""; renderEmailTags();
+}
+function removeEmailAddr(i) { emailAddrs.splice(i,1); renderEmailTags(); }
+
+async function testEmail() {
+  const resultEl = $("email-test-result");
+  const user = $("cfg-smtp-user").value.trim();
+  const pass = $("cfg-smtp-password").value.trim();
+  if (!user || !pass) { showToast("Renseignez l'expéditeur et le mot de passe d'abord", "error"); return; }
+  if (emailAddrs.length === 0) { showToast("Ajoutez au moins un destinataire", "error"); return; }
+  resultEl.className="test-result"; resultEl.textContent="Envoi en cours..."; resultEl.style.display="block"; resultEl.style.background="transparent"; resultEl.style.color="#94a3b8";
+  try {
+    const r = await fetch(`${API}/api/notifications/test-email`, {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ smtp_user: user, smtp_password: pass, recipients: [...emailAddrs] }),
+    });
+    const d = await r.json();
+    if (d.success) { resultEl.className="test-result ok"; resultEl.textContent="Email envoyé ! "+d.message; showToast("Email de test envoyé !","success"); }
+    else { resultEl.className="test-result err"; resultEl.textContent=d.message||d.detail||"Échec"; }
+  } catch(e) { resultEl.className="test-result err"; resultEl.textContent="API inaccessible"; }
+}
+
+async function sendManualReport() {
+  const resultEl = $("email-test-result");
+  resultEl.className="test-result"; resultEl.textContent="Envoi du rapport..."; resultEl.style.display="block"; resultEl.style.background="transparent"; resultEl.style.color="#94a3b8";
+  try {
+    // Sauvegarder d'abord
+    await saveNotifSettings();
+    const r = await fetch(`${API}/api/notifications/send-report`, { method:"POST" });
+    const d = await r.json();
+    if (d.success) { resultEl.className="test-result ok"; resultEl.textContent="Rapport envoyé ! "+d.message; showToast("Rapport envoyé !","success"); }
+    else { resultEl.className="test-result err"; resultEl.textContent=d.message||d.detail||"Échec"; }
+  } catch(e) { resultEl.className="test-result err"; resultEl.textContent="API inaccessible"; }
+}
+
+// ----------------------------------------------------------------
+// Notification settings — SMS/WA/Telegram
 // ----------------------------------------------------------------
 const smsNumbers = [], waNumbers = [], tgIds = [];
 
@@ -451,6 +504,14 @@ async function loadNotifSettings() {
     const r = await fetch(`${API}/api/notifications/settings`);
     if (!r.ok) return;
     const cfg = await r.json();
+    // Email
+    if (cfg.email_configured) { $("email-status").className="config-status ok"; $("email-status-icon").textContent="✓"; $("email-status-text").textContent=`Email configuré (${(cfg.email_recipients||[]).length} destinataire(s))`; }
+    $("email-enabled").checked = cfg.email_enabled || false;
+    $("email-report-enabled").checked = cfg.email_report_enabled !== false;
+    if (cfg.email_smtp_user) $("cfg-smtp-user").value = cfg.email_smtp_user;
+    if (cfg.email_smtp_password && cfg.email_smtp_password !== "****") $("cfg-smtp-password").value = cfg.email_smtp_password;
+    emailAddrs.length=0; (cfg.email_recipients||[]).forEach(a=>emailAddrs.push(a)); renderEmailTags();
+
     if (cfg.telegram_configured) { $("tg-status").className="config-status ok"; $("tg-status-icon").textContent="✓"; $("tg-status-text").textContent="Bot configuré"; }
     if (cfg.twilio_configured)   { $("twilio-status").className="config-status ok"; $("twilio-status-icon").textContent="✓"; $("twilio-status-text").textContent="Twilio configuré"; }
     $("tg-enabled").checked = cfg.telegram_enabled || false;
@@ -476,6 +537,12 @@ async function saveNotifSettings() {
     const r = await fetch(`${API}/api/notifications/settings`, {
       method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({
+        email_enabled:$("email-enabled").checked,
+        email_smtp_user:$("cfg-smtp-user").value.trim(),
+        email_smtp_password:$("cfg-smtp-password").value.trim()||"****",
+        email_recipients:[...emailAddrs],
+        email_report_enabled:$("email-report-enabled").checked,
+        email_report_interval_hours:3,
         telegram_enabled:$("tg-enabled").checked, telegram_bot_token:$("cfg-tg-token").value.trim(), telegram_chat_ids:[...tgIds],
         twilio_account_sid:$("cfg-sid").value.trim(), twilio_auth_token:$("cfg-token").value.trim(),
         twilio_phone_from:$("cfg-from-sms").value.trim(), twilio_whatsapp_from:$("cfg-from-wa").value.trim(),
@@ -511,7 +578,9 @@ async function testNotif(channel, numberOverride) {
 // ----------------------------------------------------------------
 document.addEventListener("DOMContentLoaded", () => {
   ["spain","france"].forEach(mid => { updateMonitorStatus(mid,null,null,null); updateControls(mid,false); });
-  setupInputEnter(); renderTgTags(); renderTags("sms"); renderTags("wa");
+  setupInputEnter(); renderEmailTags(); renderTgTags(); renderTags("sms"); renderTags("wa");
+  const emailInput = $("email-new-addr");
+  if(emailInput) emailInput.addEventListener("keydown", e => { if(e.key==="Enter"){e.preventDefault();addEmailAddr();} });
   connectWS();
   loadNotifSettings();
   appendLog("VisaMonitor Dual — BLS Spain + Capago France", "info", "sys");

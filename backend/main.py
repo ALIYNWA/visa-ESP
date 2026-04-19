@@ -5,6 +5,7 @@ Application FastAPI – VisaMonitor Dual
 - WebSocket temps réel unique (broadcast monitor_id)
 - Fichiers statiques frontend
 """
+import asyncio
 import logging
 import os
 import sys
@@ -23,6 +24,7 @@ from models import WSMessage
 from monitor import spain_monitor, france_monitor, MONITORS, ws_manager
 import notification_store as store
 from notifier import test_notification
+from email_service import send_email, build_report_email, build_test_email
 
 # ------------------------------------------------------------------
 # Logging
@@ -45,12 +47,43 @@ logger = logging.getLogger(__name__)
 # ------------------------------------------------------------------
 # Lifespan
 # ------------------------------------------------------------------
+async def _report_scheduler():
+    """Envoie un rapport email toutes les N heures."""
+    while True:
+        cfg = store.load()
+        interval_h = cfg.get("email_report_interval_hours", 3)
+        await asyncio.sleep(interval_h * 3600)
+        if not cfg.get("email_report_enabled") or not cfg.get("email_enabled"):
+            continue
+        if not store.email_configured(cfg):
+            continue
+        try:
+            spain_stats  = spain_monitor.get_status().model_dump()
+            france_stats = france_monitor.get_status().model_dump()
+            now = datetime.now(timezone.utc)
+            subject, html = build_report_email(interval_h, spain_stats, france_stats, now)
+            ok, msg = send_email(
+                smtp_user=cfg["email_smtp_user"],
+                smtp_password=cfg["email_smtp_password"],
+                recipients=cfg["email_recipients"],
+                subject=subject,
+                html_body=html,
+                smtp_host=cfg.get("email_smtp_host", ""),
+                smtp_port=cfg.get("email_smtp_port", 587),
+            )
+            logger.info(f"Rapport email : {msg}")
+        except Exception as e:
+            logger.error(f"Erreur rapport email : {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("=== VisaMonitor Dual démarrage ===")
     logger.info(f"Espagne : {settings.TARGET_URL}")
     logger.info(f"France  : {settings.FRANCE_TARGET_URL}")
+    report_task = asyncio.create_task(_report_scheduler())
     yield
+    report_task.cancel()
     for m in MONITORS.values():
         m.stop()
     logger.info("=== VisaMonitor arrêt ===")
@@ -160,6 +193,9 @@ async def get_notif_settings():
 @app.post("/api/notifications/settings")
 async def save_notif_settings(body: dict):
     allowed_keys = {
+        "email_enabled", "email_smtp_user", "email_smtp_password",
+        "email_smtp_host", "email_smtp_port", "email_recipients",
+        "email_report_enabled", "email_report_interval_hours",
         "telegram_enabled", "telegram_bot_token", "telegram_chat_ids",
         "sms_enabled", "sms_numbers",
         "whatsapp_enabled", "whatsapp_numbers",
@@ -173,10 +209,21 @@ async def save_notif_settings(body: dict):
             if key == "twilio_auth_token" and "****" in str(val):
                 continue
             current[key] = val
+    # Ne pas écraser le mot de passe masqué
+    if "email_smtp_password" in body and body["email_smtp_password"] == "****":
+        body.pop("email_smtp_password")
+
+    for key in allowed_keys:
+        if key in body:
+            val = body[key]
+            if key == "twilio_auth_token" and "****" in str(val):
+                continue
+            current[key] = val
     if store.save(current):
         logger.info("Parametres de notification sauvegardes")
         return {
             "saved": True,
+            "email_configured": store.email_configured(current),
             "twilio_configured": store.twilio_configured(current),
             "telegram_configured": store.telegram_configured(current),
         }
@@ -202,6 +249,56 @@ async def test_notif(body: dict):
         number = chat_ids[0]
 
     ok, msg = test_notification(channel, number, cfg)
+    return {"success": ok, "message": msg}
+
+
+@app.post("/api/notifications/test-email")
+async def test_email(body: dict):
+    """Envoie un email de test aux destinataires configurés."""
+    cfg = store.load()
+
+    # Mettre à jour temporairement avec les valeurs du body
+    smtp_user     = body.get("smtp_user", cfg.get("email_smtp_user", ""))
+    smtp_password = body.get("smtp_password", cfg.get("email_smtp_password", ""))
+    recipients    = body.get("recipients", cfg.get("email_recipients", []))
+
+    if not smtp_user or not smtp_password:
+        raise HTTPException(400, "Email expéditeur et mot de passe requis")
+    if not recipients:
+        raise HTTPException(400, "Aucun destinataire")
+
+    subject, html = build_test_email(recipients)
+    ok, msg = send_email(
+        smtp_user=smtp_user,
+        smtp_password=smtp_password,
+        recipients=recipients,
+        subject=subject,
+        html_body=html,
+    )
+    return {"success": ok, "message": msg}
+
+
+@app.post("/api/notifications/send-report")
+async def send_manual_report():
+    """Envoie un rapport immédiat par email (bouton manuel)."""
+    cfg = store.load()
+    if not store.email_configured(cfg):
+        raise HTTPException(400, "Email non configuré")
+
+    spain_stats  = spain_monitor.get_status().model_dump()
+    france_stats = france_monitor.get_status().model_dump()
+    now = datetime.now(timezone.utc)
+    interval_h = cfg.get("email_report_interval_hours", 3)
+    subject, html = build_report_email(interval_h, spain_stats, france_stats, now)
+    ok, msg = send_email(
+        smtp_user=cfg["email_smtp_user"],
+        smtp_password=cfg["email_smtp_password"],
+        recipients=cfg["email_recipients"],
+        subject=subject,
+        html_body=html,
+        smtp_host=cfg.get("email_smtp_host", ""),
+        smtp_port=cfg.get("email_smtp_port", 587),
+    )
     return {"success": ok, "message": msg}
 
 

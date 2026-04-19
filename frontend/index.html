@@ -302,6 +302,52 @@
     </div>
     <div id="notif-body" class="notif-body hidden">
 
+        <!-- EMAIL -->
+      <div class="notif-section" style="border-color:#10b981;">
+        <div class="notif-section-header" style="background:#041a10;" onclick="toggleSection('email-body')">
+          <span style="font-weight:700;color:#6ee7b7;">📧 Email <span style="font-size:0.68rem;background:#065f46;color:#a7f3d0;padding:2px 8px;border-radius:999px;">ALERTE + RAPPORT 3H</span></span>
+          <span id="email-body-arrow">▼</span>
+        </div>
+        <div id="email-body" class="notif-section-body hidden">
+          <div id="email-status" class="config-status nok"><span id="email-status-icon">✗</span><span id="email-status-text">Email non configuré</span></div>
+
+          <div style="padding:11px;background:#060d1a;border:1px solid #065f46;border-radius:8px;font-size:0.76rem;color:#6ee7b7;line-height:2;">
+            <strong>Gmail :</strong> Paramètres → Sécurité → Validation 2 étapes → Mots de passe d'application → Générer<br/>
+            <strong>Outlook :</strong> account.microsoft.com → Sécurité → Mot de passe d'application
+          </div>
+
+          <div class="toggle-row">
+            <span class="toggle-label">Activer les emails</span>
+            <label class="toggle"><input type="checkbox" id="email-enabled"/><span class="toggle-slider"></span></label>
+          </div>
+          <div class="form-row">
+            <label class="form-label">Adresse email expéditeur</label>
+            <input id="cfg-smtp-user" class="form-input" type="email" placeholder="moncompte@gmail.com"/>
+          </div>
+          <div class="form-row">
+            <label class="form-label">Mot de passe d'application</label>
+            <input id="cfg-smtp-password" class="form-input" type="password" placeholder="xxxx xxxx xxxx xxxx"/>
+          </div>
+          <div class="form-row">
+            <label class="form-label">Destinataires (adresses email)</label>
+            <div id="email-tags" class="number-tags"></div>
+            <div class="add-row">
+              <input id="email-new-addr" class="form-input" type="email" placeholder="ali.habarek@outlook.fr"/>
+              <button class="btn-add" onclick="addEmailAddr()">+ Ajouter</button>
+            </div>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">Rapport toutes les 3h</span>
+            <label class="toggle"><input type="checkbox" id="email-report-enabled" checked/><span class="toggle-slider"></span></label>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn-test" onclick="testEmail()" style="flex:1;">📧 Envoyer email test</button>
+            <button class="btn-test" onclick="sendManualReport()" style="flex:1;">📊 Envoyer rapport maintenant</button>
+          </div>
+          <div id="email-test-result" class="test-result"></div>
+        </div>
+      </div>
+
       <div class="notif-section" style="border-color:#2563eb;">
         <div class="notif-section-header" style="background:#0e1f3a;" onclick="toggleSection('tg-body')">
           <span style="font-weight:700;color:#93c5fd;">✈ Telegram <span style="font-size:0.68rem;background:#1d4ed8;color:#bfdbfe;padding:2px 8px;border-radius:999px;">RECOMMANDÉ</span></span>
@@ -354,7 +400,7 @@
         </div>
       </div>
 
-      <button class="btn-save" onclick="saveNotifSettings()">💾 Sauvegarder la configuration</button>
+      <button class="btn-save btn-save-notif" onclick="saveNotifSettings()">💾 Sauvegarder la configuration</button>
       <div id="save-result" style="text-align:center;font-size:0.75rem;margin-top:6px;min-height:18px;color:#64748b;"></div>
     </div>
   </div>

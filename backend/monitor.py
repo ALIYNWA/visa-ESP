@@ -18,6 +18,8 @@ from config import settings
 from models import CheckResult, MonitorStatus, WSMessage
 from notifier import notify, cooldown
 from scraper import check_appointment
+import notification_store as store
+from email_service import send_email, build_alert_email, build_report_email
 
 logger = logging.getLogger(__name__)
 
@@ -185,20 +187,67 @@ class Monitor:
         # Notifications si disponible
         if result.available:
             notif_report = notify(result)
-            if notif_report.get("sent"):
+            channels = notif_report.get("channels", [])
+
+            # Email alerte immédiate (Espagne uniquement si configuré)
+            await self._send_alert_email(result)
+
+            if notif_report.get("sent") or channels:
                 await self._broadcast(WSMessage(
                     type="notification",
                     data={
                         "monitor_id": self.monitor_id,
-                        "channels": notif_report.get("channels", []),
+                        "channels": channels,
                         "message": f"Notifications {self.label} envoyées !",
                     }
                 ))
                 await self._broadcast_log(
-                    f"[{self.label}] ALERTE via {', '.join(notif_report.get('channels', []))}"
+                    f"[{self.label}] ALERTE envoyée"
                 )
         elif result.error:
             await self._broadcast_log(f"[{self.label}] Erreur : {result.error}")
+
+    async def _send_alert_email(self, result: CheckResult):
+        """Envoie un email d'alerte créneau. Espagne uniquement."""
+        if self.monitor_id != "spain":
+            return
+        cfg = store.load()
+        if not cfg.get("email_enabled") or not store.email_configured(cfg):
+            return
+        try:
+            instructions_spain = [
+                "Cliquez sur le bouton 'RÉSERVER MAINTENANT' ci-dessous",
+                "Connectez-vous à votre compte BLS Spain Visa (ou créez-en un)",
+                "Sélectionnez 'Espagne' → 'Court séjour'",
+                "Choisissez une date et un horaire disponibles",
+                "Remplissez vos informations personnelles (passeport, etc.)",
+                "Confirmez et téléchargez votre confirmation de rendez-vous",
+                "Préparez vos documents avant la date du RDV",
+            ]
+            subject, html = build_alert_email(
+                monitor_label=self.label,
+                booking_url=self.target_url,
+                slots_count=result.slots_count,
+                check_number=self._total_checks,
+                detection_message=result.message,
+                detected_at=result.timestamp,
+                instructions=instructions_spain,
+            )
+            ok, msg = send_email(
+                smtp_user=cfg["email_smtp_user"],
+                smtp_password=cfg["email_smtp_password"],
+                recipients=cfg["email_recipients"],
+                subject=subject,
+                html_body=html,
+                smtp_host=cfg.get("email_smtp_host", ""),
+                smtp_port=cfg.get("email_smtp_port", 587),
+            )
+            if ok:
+                await self._broadcast_log(f"[{self.label}] Email alerte envoye a {len(cfg['email_recipients'])} destinataire(s)")
+            else:
+                await self._broadcast_log(f"[{self.label}] Erreur email : {msg}")
+        except Exception as e:
+            logger.error(f"Erreur email alerte : {e}")
 
     # ------------------------------------------------------------------
     # WebSocket helpers
