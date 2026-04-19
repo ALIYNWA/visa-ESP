@@ -504,10 +504,11 @@ async function loadNotifSettings() {
     if (!r.ok) return;
     const cfg = await r.json();
     // Email
-    if (cfg.email_configured) { $("email-status").className="config-status ok"; $("email-status-icon").textContent="✓"; $("email-status-text").textContent=`Email configuré (${(cfg.email_recipients||[]).length} destinataire(s))`; }
+    if (cfg.email_configured) { $("email-status").className="config-status ok"; $("email-status-icon").textContent="✓"; $("email-status-text").textContent=`Brevo configuré — ${(cfg.email_recipients||[]).length} destinataire(s)`; $("cfg-brevo-key").placeholder="Clé déjà configurée — laisser vide pour conserver"; }
     $("email-enabled").checked = cfg.email_enabled || false;
     $("email-report-enabled").checked = cfg.email_report_enabled !== false;
-    if (cfg.email_brevo_api_key) $("cfg-brevo-key").value = cfg.email_brevo_api_key;
+    // Ne jamais pré-remplir la clé API (évite de renvoyer la version masquée)
+    // Le champ reste vide — on envoie seulement si l'utilisateur saisit une nouvelle clé
     emailAddrs.length=0; (cfg.email_recipients||[]).forEach(a=>emailAddrs.push(a)); renderEmailTags();
 
     if (cfg.telegram_configured) { $("tg-status").className="config-status ok"; $("tg-status-icon").textContent="✓"; $("tg-status-text").textContent="Bot configuré"; }
@@ -536,7 +537,8 @@ async function saveNotifSettings() {
       method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({
         email_enabled:$("email-enabled").checked,
-        email_brevo_api_key:$("cfg-brevo-key").value.trim(),
+        // N'envoyer la clé que si l'utilisateur a saisi quelque chose de nouveau
+        ...($("cfg-brevo-key").value.trim() ? {email_brevo_api_key:$("cfg-brevo-key").value.trim()} : {}),
         email_recipients:[...emailAddrs],
         email_report_enabled:$("email-report-enabled").checked,
         email_report_interval_hours:3,
