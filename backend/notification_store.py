@@ -68,9 +68,8 @@ def get_masked(data: dict) -> dict:
     if masked.get("telegram_bot_token"):
         tok = masked["telegram_bot_token"]
         masked["telegram_bot_token"] = tok[:6] + "****" + tok[-4:] if len(tok) > 10 else "****"
-    if masked.get("email_brevo_api_key"):
-        key = masked["email_brevo_api_key"]
-        masked["email_brevo_api_key"] = key[:8] + "****" + key[-4:] if len(key) > 12 else "****"
+    # Ne jamais exposer la clé Brevo au frontend — retourner vide
+    masked["email_brevo_api_key"] = ""
     return masked
 
 

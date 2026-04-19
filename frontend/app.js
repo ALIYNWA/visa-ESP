@@ -446,8 +446,6 @@ async function sendManualReport() {
   const resultEl = $("email-test-result");
   resultEl.className="test-result"; resultEl.textContent="Envoi du rapport..."; resultEl.style.display="block"; resultEl.style.background="transparent"; resultEl.style.color="#94a3b8";
   try {
-    // Sauvegarder d'abord
-    await saveNotifSettings();
     const r = await fetch(`${API}/api/notifications/send-report`, { method:"POST" });
     const d = await r.json();
     if (d.success) { resultEl.className="test-result ok"; resultEl.textContent="Rapport envoyé ! "+d.message; showToast("Rapport envoyé !","success"); }
