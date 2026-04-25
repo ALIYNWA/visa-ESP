@@ -20,8 +20,8 @@ class Settings(BaseSettings):
     PREFECTURE_TARGET_URL: str = "https://www.rdv-prefecture.interieur.gouv.fr/rdvpref/reservation/demarche/3327/"
     PREFECTURE_LABEL: str = "Préfecture 92 – Titre de séjour"
 
-    CHECK_INTERVAL_MIN: int = 30   # secondes
-    CHECK_INTERVAL_MAX: int = 90   # secondes
+    CHECK_INTERVAL_MIN: int = 10   # secondes
+    CHECK_INTERVAL_MAX: int = 25   # secondes
     MAX_RETRIES: int = 3
     RETRY_BACKOFF_BASE: float = 2.0  # exponentiel
 
