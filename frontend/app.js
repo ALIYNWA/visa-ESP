@@ -16,8 +16,9 @@ const MAX_HISTORY_ROWS = 100;
 // State par monitor
 // ----------------------------------------------------------------
 const state = {
-  spain:  { history: [], countdown: { interval: null, nextAt: null, total: null } },
-  france: { history: [], countdown: { interval: null, nextAt: null, total: null } },
+  spain:       { history: [], countdown: { interval: null, nextAt: null, total: null } },
+  france:      { history: [], countdown: { interval: null, nextAt: null, total: null } },
+  prefecture:  { history: [], countdown: { interval: null, nextAt: null, total: null } },
 };
 
 // ----------------------------------------------------------------
@@ -299,8 +300,8 @@ function appendLog(message, type = null, monitorId = "sys") {
   const now  = new Date().toLocaleTimeString("fr-FR");
   const div  = document.createElement("div");
   div.className = "log-entry";
-  const tagLabel = monitorId === "spain" ? "ESP" : monitorId === "france" ? "FRA" : "SYS";
-  const tagClass = monitorId === "spain" ? "spain" : monitorId === "france" ? "france" : "sys";
+  const tagLabel = monitorId === "spain" ? "ESP" : monitorId === "france" ? "FRA" : monitorId === "prefecture" ? "PRF" : "SYS";
+  const tagClass = monitorId === "spain" ? "spain" : monitorId === "france" ? "france" : monitorId === "prefecture" ? "prefecture" : "sys";
   const cls      = type ? `log-msg ${type}` : "log-msg";
   div.innerHTML = `<span class="log-time">${now}</span><span class="log-tag ${tagClass}">${tagLabel}</span><span class="${cls}">${escHtml(message)}</span>`;
   container.prepend(div);
@@ -574,7 +575,7 @@ async function testNotif(channel, numberOverride) {
 // Init
 // ----------------------------------------------------------------
 document.addEventListener("DOMContentLoaded", () => {
-  ["spain","france"].forEach(mid => { updateMonitorStatus(mid,null,null,null); updateControls(mid,false); });
+  ["spain","france","prefecture"].forEach(mid => { updateMonitorStatus(mid,null,null,null); updateControls(mid,false); });
   setupInputEnter(); renderEmailTags(); renderTgTags(); renderTags("sms"); renderTags("wa");
   const emailInput = $("email-new-addr");
   if(emailInput) emailInput.addEventListener("keydown", e => { if(e.key==="Enter"){e.preventDefault();addEmailAddr();} });

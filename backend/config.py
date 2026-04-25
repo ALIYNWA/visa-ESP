@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     FRANCE_VISA_CATEGORY: str = "France"
     FRANCE_VISA_SUBCATEGORY: str = "Court séjour"
 
+    # --- Monitoring Préfecture 92 – Titre de séjour ---
+    PREFECTURE_TARGET_URL: str = "https://administration-etrangers-en-france.interieur.gouv.fr/particuliers/#/demarches/titre-de-sejour/rendez-vous"
+    PREFECTURE_LABEL: str = "Préfecture 92 – Titre de séjour"
+
     CHECK_INTERVAL_MIN: int = 30   # secondes
     CHECK_INTERVAL_MAX: int = 90   # secondes
     MAX_RETRIES: int = 3

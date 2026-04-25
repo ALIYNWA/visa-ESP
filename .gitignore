@@ -10,3 +10,5 @@ node_modules/
 *.egg-info/
 .DS_Store
 Thumbs.db
+backend/notif_settings.json
+.claude/

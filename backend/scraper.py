@@ -77,6 +77,12 @@ NO_SLOT_PATTERNS = [
     "aucun creneau n'est disponible",
     "aucun rendez-vous disponible",
     "il n'y a pas de creneau",
+    # Préfecture française
+    "aucun rendez-vous n'est disponible",
+    "aucune plage horaire",
+    "pas de créneau disponible",
+    "guichet complet",
+    "no slot available at this location",
     "les rendez-vous ne sont pas disponibles",
     "no appointment slots available",
     "temporarily unavailable",
@@ -109,6 +115,12 @@ AVAILABLE_PATTERNS = [
     "disponibilites",
     "prendre rendez-vous",
     "choisissez votre creneau",
+    # Préfecture française
+    "choisir un rendez-vous",
+    "selectionner une date",
+    "plage horaire disponible",
+    "prendre un rendez-vous",
+    "rdv disponible",
 ]
 
 

@@ -21,7 +21,7 @@ from fastapi.staticfiles import StaticFiles
 
 from config import settings
 from models import WSMessage
-from monitor import spain_monitor, france_monitor, MONITORS, ws_manager
+from monitor import spain_monitor, france_monitor, prefecture_monitor, MONITORS, ws_manager
 import notification_store as store
 from notifier import test_notification
 from email_service import send_email, build_report_email, build_test_email

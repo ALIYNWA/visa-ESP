@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RFP Intelligence — Appels d'offres Santé</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ===================================================== SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">📋</div>
+      <div>
+        <div class="sidebar-logo-text">RFP Intelligence</div>
+        <div class="sidebar-logo-sub">Santé &amp; Logiciels</div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Navigation</div>
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-view="dashboard" onclick="App.navigate('dashboard')">
+          <span class="nav-icon">◈</span> Dashboard
+        </button>
+        <button class="nav-item" data-view="rfps" onclick="App.navigate('rfps')">
+          <span class="nav-icon">☰</span> Appels d'offres
+          <span class="nav-badge" id="badge-new" style="display:none">0</span>
+        </button>
+        <button class="nav-item" data-view="import" onclick="App.navigate('import')">
+          <span class="nav-icon">⊕</span> Importer un AO
+        </button>
+      </nav>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Automatisation</div>
+      <nav class="sidebar-nav">
+        <button class="nav-item" data-view="scraping" onclick="App.navigate('scraping')">
+          <span class="nav-icon">↻</span> Scraping
+        </button>
+      </nav>
+    </div>
+
+    <div class="sidebar-bottom">
+      <button class="scrape-btn" id="quick-scrape-btn" onclick="App.quickScrape()">
+        <span id="scrape-btn-icon">🔍</span>
+        <span id="scrape-btn-text">Lancer un scraping</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ===================================================== MAIN -->
+  <div class="main">
+
+    <!-- Topbar dynamique -->
+    <div class="topbar">
+      <div class="topbar-title" id="topbar-title">Dashboard</div>
+      <div class="topbar-actions" id="topbar-actions"></div>
+    </div>
+
+    <!-- Contenu des vues -->
+    <div class="page-content" id="page-content">
+      <!-- Injecté dynamiquement par app.js -->
+    </div>
+
+  </div><!-- /main -->
+
+</div><!-- /app -->
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<!-- Loader overlay -->
+<div class="loader-overlay hidden" id="loader-overlay">
+  <div class="loader-box">
+    <div class="loader-spinner"></div>
+    <div class="loader-text" id="loader-text">Chargement...</div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

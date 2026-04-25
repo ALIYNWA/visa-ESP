@@ -46,6 +46,15 @@ main { max-width:1400px; margin:0 auto; padding:28px 20px 48px; display:flex; fl
   align-items: start;
 }
 
+.triple-grid {
+  grid-template-columns: 1fr 40px 1fr 40px 1fr;
+}
+
+@media (max-width: 1100px) {
+  .triple-grid { grid-template-columns: 1fr; }
+  .triple-grid .col-separator { display: none; }
+}
+
 @media (max-width: 860px) {
   .dual-grid { grid-template-columns: 1fr; }
   .col-separator { display: none; }
@@ -80,8 +89,9 @@ main { max-width:1400px; margin:0 auto; padding:28px 20px 48px; display:flex; fl
   border: 2px solid;
   margin-bottom: 4px;
 }
-.spain-header  { background: linear-gradient(135deg, #3d0a0a, #1a0505); border-color: #dc2626; }
-.france-header { background: linear-gradient(135deg, #0a1628, #060e1e); border-color: #2563eb; }
+.spain-header      { background: linear-gradient(135deg, #3d0a0a, #1a0505); border-color: #dc2626; }
+.france-header     { background: linear-gradient(135deg, #0a1628, #060e1e); border-color: #2563eb; }
+.prefecture-header { background: linear-gradient(135deg, #1a0a3d, #0d0520); border-color: #7c3aed; }
 
 .col-flag         { font-size: 4rem; line-height: 1; margin-bottom: 8px; }
 .col-country-name { font-size: 1.3rem; font-weight: 900; letter-spacing: 2px; color: var(--text); }
@@ -191,8 +201,9 @@ button:disabled { opacity:0.3; cursor:not-allowed; }
 /* ── Lien réservation ── */
 .book-link { display:flex; align-items:center; justify-content:center; gap:8px; padding:11px 16px; border-radius:var(--r); font-size:0.82rem; font-weight:700; text-decoration:none; transition:opacity 0.2s,transform 0.1s; }
 .book-link:hover { opacity:0.82; transform:translateY(-1px); }
-.spain-link  { background:linear-gradient(135deg,#7f1d1d,#991b1b); color:#fca5a5; border:1px solid #991b1b; }
-.france-link { background:linear-gradient(135deg,#0e1f3a,#1e3a5f); color:#93c5fd; border:1px solid #1e3a5f; }
+.spain-link       { background:linear-gradient(135deg,#7f1d1d,#991b1b); color:#fca5a5; border:1px solid #991b1b; }
+.france-link      { background:linear-gradient(135deg,#0e1f3a,#1e3a5f); color:#93c5fd; border:1px solid #1e3a5f; }
+.prefecture-link  { background:linear-gradient(135deg,#2e1065,#3b0764); color:#c4b5fd; border:1px solid #6d28d9; }
 
 /* ══════════════════════════════════════════════
    ONGLETS
@@ -203,7 +214,8 @@ button:disabled { opacity:0.3; cursor:not-allowed; }
 .tab-btn:hover { color:var(--text); }
 .tab-btn.active { color:var(--blue); border-bottom-color:var(--blue); }
 .tab-btn.spain-tab.active  { color:#dc2626; border-bottom-color:#dc2626; }
-.tab-btn.france-tab.active { color:#2563eb; border-bottom-color:#2563eb; }
+.tab-btn.france-tab.active     { color:#2563eb; border-bottom-color:#2563eb; }
+.tab-btn.prefecture-tab.active { color:#7c3aed; border-bottom-color:#7c3aed; }
 .tab-content { display:none; padding:16px; }
 .tab-content.active { display:block; }
 
@@ -212,9 +224,10 @@ button:disabled { opacity:0.3; cursor:not-allowed; }
 @keyframes fadeIn { from{opacity:0;transform:translateY(-3px)} to{opacity:1;transform:none} }
 .log-time { color:#475569; white-space:nowrap; flex-shrink:0; }
 .log-tag  { border-radius:3px; padding:0 5px; font-size:0.67rem; font-weight:700; flex-shrink:0; }
-.log-tag.spain  { background:#3d0a0a; color:#fca5a5; border:1px solid #991b1b; }
-.log-tag.france { background:#0e1f3a; color:#93c5fd; border:1px solid #1e3a5f; }
-.log-tag.sys    { background:var(--surface2); color:var(--muted); border:1px solid var(--border); }
+.log-tag.spain       { background:#3d0a0a; color:#fca5a5; border:1px solid #991b1b; }
+.log-tag.france      { background:#0e1f3a; color:#93c5fd; border:1px solid #1e3a5f; }
+.log-tag.prefecture  { background:#2e1065; color:#c4b5fd; border:1px solid #6d28d9; }
+.log-tag.sys         { background:var(--surface2); color:var(--muted); border:1px solid var(--border); }
 .log-msg { color:var(--text); flex:1; }
 .log-msg.success { color:var(--green); font-weight:700; }
 .log-msg.error   { color:var(--red); }

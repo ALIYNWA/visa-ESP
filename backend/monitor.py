@@ -208,22 +208,34 @@ class Monitor:
             await self._broadcast_log(f"[{self.label}] Erreur : {result.error}")
 
     async def _send_alert_email(self, result: CheckResult):
-        """Envoie un email d'alerte créneau. Espagne uniquement."""
-        if self.monitor_id != "spain":
+        """Envoie un email d'alerte créneau. Espagne + Préfecture."""
+        if self.monitor_id not in ("spain", "prefecture"):
             return
         cfg = store.load()
         if not cfg.get("email_enabled") or not store.email_configured(cfg):
             return
         try:
-            instructions_spain = [
-                "Cliquez sur le bouton 'RÉSERVER MAINTENANT' ci-dessous",
-                "Connectez-vous à votre compte BLS Spain Visa (ou créez-en un)",
-                "Sélectionnez 'Espagne' → 'Court séjour'",
-                "Choisissez une date et un horaire disponibles",
-                "Remplissez vos informations personnelles (passeport, etc.)",
-                "Confirmez et téléchargez votre confirmation de rendez-vous",
-                "Préparez vos documents avant la date du RDV",
-            ]
+            instructions_by_monitor = {
+                "spain": [
+                    "Cliquez sur le bouton 'RÉSERVER MAINTENANT' ci-dessous",
+                    "Connectez-vous à votre compte BLS Spain Visa (ou créez-en un)",
+                    "Sélectionnez 'Espagne' → 'Court séjour'",
+                    "Choisissez une date et un horaire disponibles",
+                    "Remplissez vos informations personnelles (passeport, etc.)",
+                    "Confirmez et téléchargez votre confirmation de rendez-vous",
+                    "Préparez vos documents avant la date du RDV",
+                ],
+                "prefecture": [
+                    "Cliquez sur le bouton 'RÉSERVER MAINTENANT' ci-dessous",
+                    "Connectez-vous avec votre compte administration-etrangers-en-france.interieur.gouv.fr",
+                    "Sélectionnez 'Titre de séjour' → 'Remise de titre'",
+                    "Choisissez la préfecture des Hauts-de-Seine (Nanterre)",
+                    "Sélectionnez une date et un horaire disponibles",
+                    "Confirmez le rendez-vous et notez la référence",
+                    "Apportez votre convocation + documents demandés le jour J",
+                ],
+            }
+            instructions_spain = instructions_by_monitor.get(self.monitor_id, instructions_by_monitor["spain"])
             subject, html = build_alert_email(
                 monitor_label=self.label,
                 booking_url=self.target_url,
@@ -278,8 +290,15 @@ france_monitor = Monitor(
     label="France",
 )
 
+prefecture_monitor = Monitor(
+    monitor_id="prefecture",
+    target_url=settings.PREFECTURE_TARGET_URL,
+    label="Préfecture 92",
+)
+
 # Dictionnaire pour accès générique
 MONITORS = {
-    "spain": spain_monitor,
-    "france": france_monitor,
+    "spain":       spain_monitor,
+    "france":      france_monitor,
+    "prefecture":  prefecture_monitor,
 }

@@ -31,7 +31,7 @@
   <!-- ============================================================
        GRILLE 2 COLONNES : ESPAGNE | FRANCE
        ============================================================ -->
-  <div class="dual-grid">
+  <div class="dual-grid triple-grid">
 
     <!-- ══════════════════════════════════════
          COLONNE GAUCHE — 🇪🇸 ESPAGNE
@@ -150,6 +150,8 @@
       <div class="sep-line"></div>
     </div>
 
+    <!-- placeholder séparateur 2 ajouté après France -->
+
     <!-- ══════════════════════════════════════
          COLONNE DROITE — 🇫🇷 FRANCE
          ══════════════════════════════════════ -->
@@ -259,6 +261,95 @@
       </a>
 
     </div><!-- /col-france -->
+
+    <!-- Séparateur France | Préfecture -->
+    <div class="col-separator">
+      <div class="sep-line"></div>
+      <div class="sep-flags">🇫🇷<br/>·<br/>🏛️</div>
+      <div class="sep-line"></div>
+    </div>
+
+    <!-- ══════════════════════════════════════
+         COLONNE 3 — 🏛️ PRÉFECTURE 92
+         ══════════════════════════════════════ -->
+    <div class="col-country col-prefecture">
+
+      <div class="col-header prefecture-header">
+        <div class="col-flag">🏛️</div>
+        <div class="col-country-name">PRÉFECTURE 92</div>
+        <div class="col-provider">Titre de séjour · Nanterre</div>
+      </div>
+
+      <div class="status-card" id="card-prefecture">
+        <div class="status-center" id="status-center-prefecture">
+          <span class="status-icon-xl" id="icon-prefecture">🔍</span>
+          <div class="status-badge unknown" id="badge-prefecture">EN ATTENTE</div>
+          <div class="status-msg" id="msg-prefecture">Démarrez le monitoring</div>
+        </div>
+
+        <div class="slot-panel" id="slot-panel-prefecture" style="display:none;">
+          <div class="slot-alert-header">
+            <span style="font-size:1.4rem;animation:blink 0.5s infinite;">🚨</span>
+            <span class="slot-alert-title">CRÉNEAU DÉTECTÉ !</span>
+          </div>
+          <div class="slot-grid">
+            <div class="slot-box"><div class="slot-box-label">Créneaux</div><div class="slot-box-val green" id="slot-count-prefecture">–</div></div>
+            <div class="slot-box"><div class="slot-box-label">Détecté à</div><div class="slot-box-val" id="slot-time-prefecture">–</div></div>
+            <div class="slot-box"><div class="slot-box-label">Durée</div><div class="slot-box-val" id="slot-dur-prefecture">–</div></div>
+            <div class="slot-box"><div class="slot-box-label">Vérif. n°</div><div class="slot-box-val" id="slot-checkno-prefecture">–</div></div>
+          </div>
+          <div class="slot-signal">
+            <div class="slot-signal-label">Signal détecté</div>
+            <div class="slot-signal-val" id="slot-msg-prefecture">–</div>
+          </div>
+          <div id="slot-excerpt-wrap-prefecture" style="display:none;">
+            <div class="slot-excerpt-label">📋 Ce que dit le site</div>
+            <div class="slot-excerpt-text" id="slot-excerpt-prefecture"></div>
+          </div>
+          <a class="book-big" href="https://administration-etrangers-en-france.interieur.gouv.fr/particuliers/#/demarches/titre-de-sejour/rendez-vous" target="_blank" rel="noopener">
+            RÉSERVER MAINTENANT →
+          </a>
+        </div>
+
+        <div class="page-preview" id="preview-prefecture" style="display:none;">
+          <div class="preview-toggle" onclick="togglePreview('prefecture')">
+            📋 Ce que voit le moniteur <span id="preview-arrow-prefecture">▼</span>
+          </div>
+          <div class="preview-body" id="preview-text-prefecture"></div>
+        </div>
+      </div>
+
+      <div class="ctrl-card">
+        <div class="ctrl-buttons">
+          <button class="btn-start" id="btn-start-prefecture" onclick="startMonitor('prefecture')">▶ Démarrer</button>
+          <button class="btn-stop"  id="btn-stop-prefecture"  onclick="stopMonitor('prefecture')" disabled>■ Stop</button>
+        </div>
+        <div id="running-prefecture" style="display:none;align-items:center;gap:6px;font-size:0.72rem;color:#10b981;margin-top:8px;">
+          <span style="width:6px;height:6px;background:#10b981;border-radius:50%;animation:blink 1s infinite;"></span>
+          Surveillance en cours
+        </div>
+      </div>
+
+      <div class="cd-card">
+        <div class="cd-row">
+          <span class="cd-label">Prochaine vérif.</span>
+          <span class="cd-timer" id="cd-timer-prefecture">–</span>
+        </div>
+        <div class="cd-bar-wrap"><div class="cd-bar" id="cd-bar-prefecture"></div></div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-box"><div class="stat-val" id="stat-checks-prefecture">0</div><div class="stat-lbl">Vérifications</div></div>
+        <div class="stat-box"><div class="stat-val green" id="stat-slots-prefecture">0</div><div class="stat-lbl">Créneaux max</div></div>
+        <div class="stat-box"><div class="stat-val small" id="stat-last-prefecture">–</div><div class="stat-lbl">Dernière vérif.</div></div>
+      </div>
+
+      <a class="book-link prefecture-link" href="https://administration-etrangers-en-france.interieur.gouv.fr/particuliers/#/demarches/titre-de-sejour/rendez-vous" target="_blank" rel="noopener">
+        🔗 Ouvrir Administration Étrangers
+      </a>
+
+    </div><!-- /col-prefecture -->
+
   </div><!-- /dual-grid -->
 
 
@@ -270,6 +361,7 @@
       <button class="tab-btn active"     id="tab-btn-logs"        onclick="switchTab('logs')">📡 Logs</button>
       <button class="tab-btn spain-tab"  id="tab-btn-hist-spain"  onclick="switchTab('hist-spain')">🇪🇸 Historique Espagne</button>
       <button class="tab-btn france-tab" id="tab-btn-hist-france" onclick="switchTab('hist-france')">🇫🇷 Historique France</button>
+      <button class="tab-btn prefecture-tab" id="tab-btn-hist-prefecture" onclick="switchTab('hist-prefecture')">🏛️ Historique Préfecture</button>
     </div>
     <div class="tab-content active" id="tab-logs">
       <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
@@ -287,6 +379,12 @@
       <div class="history-wrap">
         <table><thead><tr><th>Heure</th><th>Statut</th><th>Créneaux</th><th>Message</th><th>Durée</th></tr></thead>
         <tbody id="history-tbody-france"><tr><td colspan="5" style="text-align:center;color:#475569;padding:20px;">Démarrez le monitoring France</td></tr></tbody></table>
+      </div>
+    </div>
+    <div class="tab-content" id="tab-hist-prefecture">
+      <div class="history-wrap">
+        <table><thead><tr><th>Heure</th><th>Statut</th><th>Créneaux</th><th>Message</th><th>Durée</th></tr></thead>
+        <tbody id="history-tbody-prefecture"><tr><td colspan="5" style="text-align:center;color:#475569;padding:20px;">Démarrez le monitoring Préfecture</td></tr></tbody></table>
       </div>
     </div>
   </div>

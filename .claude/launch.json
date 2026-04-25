@@ -25,6 +25,32 @@
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "3456", "--directory", "frontend"],
       "port": 3456
+    },
+    {
+      "name": "ao-sante-frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "../ao-sante/frontend", "run", "dev", "--", "--port", "3002", "--strictPort"],
+      "port": 3002
+    },
+    {
+      "name": "ao-sante-backend",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"],
+      "port": 8001,
+      "cwd": "../ao-sante/backend"
+    },
+    {
+      "name": "bidanalyzer-frontend",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "3003", "--directory", "ofbid/frontend"],
+      "port": 3003
+    },
+    {
+      "name": "bidanalyzer-backend",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"],
+      "port": 8001,
+      "cwd": "ofbid/backend"
     }
   ]
 }
