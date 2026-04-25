@@ -227,9 +227,9 @@ class Monitor:
                 ],
                 "prefecture": [
                     "Cliquez sur le bouton 'RÉSERVER MAINTENANT' ci-dessous",
-                    "Connectez-vous avec votre compte administration-etrangers-en-france.interieur.gouv.fr",
-                    "Sélectionnez 'Titre de séjour' → 'Remise de titre'",
-                    "Choisissez la préfecture des Hauts-de-Seine (Nanterre)",
+                    "Cliquez sur 'Prendre rendez-vous' sur le site de la préfecture",
+                    "Sélectionnez votre type de titre de séjour",
+                    "Choisissez la préfecture des Hauts-de-Seine — Nanterre",
                     "Sélectionnez une date et un horaire disponibles",
                     "Confirmez le rendez-vous et notez la référence",
                     "Apportez votre convocation + documents demandés le jour J",
