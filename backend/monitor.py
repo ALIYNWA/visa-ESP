@@ -17,7 +17,7 @@ from fastapi import WebSocket
 from config import settings
 from models import CheckResult, MonitorStatus, WSMessage
 from notifier import notify, cooldown
-from scraper import check_appointment
+from scraper import check_appointment, check_prefecture_appointment
 import notification_store as store
 from email_service import send_email, build_alert_email, build_report_email
 
@@ -156,10 +156,14 @@ class Monitor:
         self._total_checks += 1
         logger.info(f"[{self.monitor_id}] Vérification #{self._total_checks}")
 
-        result = await check_appointment(
-            monitor_id=self.monitor_id,
-            target_url=self.target_url,
-        )
+        # Scraper spécialisé pour la préfecture (bypass Cloudflare + captcha OCR)
+        if self.monitor_id == "prefecture":
+            result = await check_prefecture_appointment()
+        else:
+            result = await check_appointment(
+                monitor_id=self.monitor_id,
+                target_url=self.target_url,
+            )
         self._last_check = result.timestamp
         self._history.append(result)
 
