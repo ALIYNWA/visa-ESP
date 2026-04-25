@@ -354,11 +354,17 @@ async def _detect_availability(page: Page) -> Tuple[bool, int, str, str, List[st
 
 PREFECTURE_BASE = "https://www.rdv-prefecture.interieur.gouv.fr"
 PREFECTURE_HOME = f"{PREFECTURE_BASE}/rdvpref/reservation/demarche/3327/"
-PREFECTURE_CGU  = f"{PREFECTURE_BASE}/rdvpref/reservation/demarche/3327/cgu/"
+
+# ── Session persistante Préfecture (navigateur gardé ouvert entre checks) ──
+_pref_pw        = None
+_pref_browser   = None
+_pref_context   = None
+_pref_page      = None
+_pref_cf_ok_at  = 0.0          # timestamp dernière validation CF réussie
+CF_SESSION_TTL  = 1800         # revalider CF toutes les 30 min
 
 
 def _build_stealth_context_options() -> dict:
-    """Options contexte optimisées pour contourner Cloudflare."""
     return {
         "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
         "locale": "fr-FR",
@@ -374,210 +380,317 @@ def _build_stealth_context_options() -> dict:
     }
 
 
+def _preprocess_captcha(img_bytes: bytes) -> bytes:
+    """
+    Prétraitement de l'image captcha pour améliorer la lecture OCR.
+    Agrandit x2 + lissage + seuillage pour séparer le texte du fond quadrillé.
+    """
+    try:
+        import cv2
+        import numpy as np
+        arr = np.frombuffer(img_bytes, np.uint8)
+        img = cv2.imdecode(arr, cv2.IMREAD_GRAYSCALE)
+        # Agrandir x2 pour plus de détails
+        img = cv2.resize(img, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+        # Lissage médian pour atténuer le fond quadrillé
+        img = cv2.medianBlur(img, 3)
+        # Seuillage Otsu
+        _, img = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        _, buf = cv2.imencode('.png', img)
+        return bytes(buf)
+    except Exception:
+        return img_bytes  # fallback sur l'image brute
+
+
 async def _solve_captcha_image(page: Page) -> Optional[str]:
-    """Extrait et résout le captcha image via ddddocr."""
+    """
+    Extrait et résout le captcha image via ddddocr.
+    Essaie plusieurs prétraitements et retourne le meilleur résultat (nettoyé, uppercase).
+    """
     if not _OCR_AVAILABLE:
-        logger.warning("ddddocr non disponible — captcha non résolu")
         return None
     try:
         img_el = await page.query_selector("img[src^='data:image']")
         if not img_el:
-            logger.warning("Image captcha non trouvée")
             return None
         src = await img_el.get_attribute("src")
         b64_data = src.split(",", 1)[1]
-        img_bytes = base64.b64decode(b64_data)
-        result = _OCR.classification(img_bytes)
-        logger.info(f"OCR captcha: '{result}'")
-        return result.strip()
+        raw_bytes = base64.b64decode(b64_data)
+
+        candidates = []
+        # Tentative 1 : image brute
+        try:
+            r = _OCR.classification(raw_bytes)
+            if r: candidates.append(r.strip())
+        except Exception:
+            pass
+        # Tentative 2 : image prétraitée
+        try:
+            r = _OCR.classification(_preprocess_captcha(raw_bytes))
+            if r: candidates.append(r.strip())
+        except Exception:
+            pass
+
+        if not candidates:
+            return None
+
+        # Choisir le résultat le plus court et cohérent (captchas = 4-8 chars)
+        # Nettoyer : garder alphanum seulement, uppercase
+        cleaned = []
+        for c in candidates:
+            c = re.sub(r'[^A-Za-z0-9]', '', c).upper()
+            if 3 <= len(c) <= 10:
+                cleaned.append(c)
+
+        if not cleaned:
+            # Fallback sans filtre longueur
+            result = re.sub(r'[^A-Za-z0-9]', '', candidates[0]).upper()
+        else:
+            # Préférer le résultat prétraité si disponible, sinon le brut
+            result = cleaned[-1] if len(cleaned) > 1 else cleaned[0]
+
+        logger.info(f"[prefecture] OCR captcha: '{result}' (candidats: {candidates})")
+        return result
     except Exception as e:
-        logger.error(f"Erreur OCR captcha: {e}")
+        logger.error(f"[prefecture] Erreur OCR: {e}")
         return None
 
 
-async def check_prefecture_appointment(retry: int = 0) -> CheckResult:
+async def _refresh_captcha(page: Page) -> bool:
+    """Clique sur 'Générer un nouveau captcha' pour renouveler l'image."""
+    try:
+        refresh_btn = await page.query_selector(
+            "button[title*='nouveau'], button[title*='Générer'], button[title*='rafraîchir']"
+        )
+        if refresh_btn:
+            await refresh_btn.click()
+            await asyncio.sleep(1.5)
+            return True
+    except Exception:
+        pass
+    return False
+
+
+async def _ensure_pref_session() -> Optional[Page]:
     """
-    Scraper spécialisé Préfecture 92 :
-    1. Bypass Cloudflare (stealth + hover + clic natif)
-    2. Résolution captcha image via ddddocr
-    3. Soumission formulaire
-    4. Détection créneaux disponibles + retour URL directe
+    Retourne une page active avec session CF validée.
+    Crée ou réutilise le navigateur persistant.
+    """
+    global _pref_pw, _pref_browser, _pref_context, _pref_page, _pref_cf_ok_at
+
+    now = time.monotonic()
+    need_cf = (now - _pref_cf_ok_at) > CF_SESSION_TTL
+
+    # Vérifier si la page est encore valide
+    page_alive = False
+    if _pref_page is not None:
+        try:
+            _ = _pref_page.url        # lève si la page est fermée
+            page_alive = True
+        except Exception:
+            page_alive = False
+
+    # Session valide et CF OK → retourner directement
+    if page_alive and not need_cf:
+        return _pref_page
+
+    # ── Démarrer ou redémarrer le navigateur ──
+    try:
+        if _pref_browser is not None:
+            await _pref_browser.close()
+    except Exception:
+        pass
+    try:
+        if _pref_pw is not None:
+            await _pref_pw.__aexit__(None, None, None)
+    except Exception:
+        pass
+
+    _pref_pw      = async_playwright()
+    pw            = await _pref_pw.__aenter__()
+    _pref_browser = await pw.chromium.launch(
+        headless=settings.HEADLESS,
+        args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-blink-features=AutomationControlled"],
+    )
+    _pref_context = await _pref_browser.new_context(**_build_stealth_context_options())
+    _pref_page    = await _pref_context.new_page()
+
+    if _STEALTH_AVAILABLE:
+        await Stealth(navigator_user_agent=False).apply_stealth_async(_pref_page)
+
+    _pref_page.set_default_timeout(settings.BROWSER_TIMEOUT)
+
+    # ── Validation Cloudflare ──
+    logger.info("[prefecture] Validation session Cloudflare…")
+    await _pref_page.goto(PREFECTURE_HOME, wait_until="networkidle")
+    await asyncio.sleep(5)                        # laisser CF valider
+
+    body = (await _pref_page.inner_text("body")).lower()
+    if "blocked" in body and "ray id" in body:
+        logger.error("[prefecture] Cloudflare bloque — session invalide")
+        return None
+
+    _pref_cf_ok_at = time.monotonic()
+    logger.info("[prefecture] Session CF validée")
+    return _pref_page
+
+
+async def check_prefecture_appointment() -> CheckResult:
+    """
+    Scraper Préfecture 92 avec session persistante :
+    - Navigation CF faite UNE seule fois toutes les 30 min
+    - Captcha résolu à chaque check (~3-8 s total)
+    - Retry automatique si captcha incorrect (nouveau captcha)
     """
     start_time = time.monotonic()
-    timestamp = datetime.now(timezone.utc)
-    monitor_id = "prefecture"
+    timestamp  = datetime.now(timezone.utc)
+    mid        = "prefecture"
 
-    async with async_playwright() as pw:
-        browser: Optional[Browser] = None
-        context: Optional[BrowserContext] = None
-        try:
-            browser = await pw.chromium.launch(
-                headless=settings.HEADLESS,
-                args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-blink-features=AutomationControlled"],
+    try:
+        page = await _ensure_pref_session()
+        if page is None:
+            return CheckResult(
+                monitor_id=mid, timestamp=timestamp,
+                available=False, slots_count=0,
+                message="Session Cloudflare invalide — réessai prochain cycle",
+                duration_ms=(time.monotonic() - start_time) * 1000,
             )
-            context = await browser.new_context(**_build_stealth_context_options())
 
-            page = await context.new_page()
+        # ── Naviguer vers la page formulaire (CGU) ──
+        logger.info(f"[{mid}] Navigation vers page formulaire…")
 
-            # Appliquer stealth si disponible
-            if _STEALTH_AVAILABLE:
-                await Stealth(navigator_user_agent=False).apply_stealth_async(page)
-
-            page.set_default_timeout(settings.BROWSER_TIMEOUT)
-
-            # ── Étape 1 : Page d'accueil – laisser Cloudflare valider la session ──
-            logger.info(f"[{monitor_id}] Chargement page accueil préfecture…")
-            await page.goto(PREFECTURE_HOME, wait_until="networkidle")
-            await asyncio.sleep(6)  # CF challenge timeout
-
-            # Vérifier présence du lien CGU
+        # Clic depuis la home si on y est, sinon goto direct
+        if "demarche/3327/" in page.url and "cgu" not in page.url:
             rdv_link = await page.query_selector("a[href*='cgu']")
-            if not rdv_link:
-                return CheckResult(
-                    monitor_id=monitor_id, timestamp=timestamp,
-                    available=False, slots_count=0,
-                    message="Page accueil inaccessible ou structure modifiée",
-                    duration_ms=(time.monotonic() - start_time) * 1000,
-                )
-
-            # ── Étape 2 : Clic humain sur "Prendre un rendez-vous" ──
-            logger.info(f"[{monitor_id}] Clic sur 'Prendre un rendez-vous'…")
-            await page.mouse.move(random.randint(200, 600), random.randint(200, 500))
-            await asyncio.sleep(random.uniform(0.3, 0.8))
-            await rdv_link.hover()
-            await asyncio.sleep(random.uniform(0.5, 1.2))
-            await rdv_link.click()
-
-            try:
-                await page.wait_for_load_state("networkidle", timeout=15000)
-            except PWTimeout:
-                pass
-            await asyncio.sleep(3)
-
-            # Vérifier Cloudflare
-            body_text = (await page.inner_text("body")).lower()
-            if "blocked" in body_text or "cloudflare" in body_text and "ray id" in body_text:
-                return CheckResult(
-                    monitor_id=monitor_id, timestamp=timestamp,
-                    available=False, slots_count=0,
-                    message="Bloqué par Cloudflare — réessai dans quelques secondes",
-                    duration_ms=(time.monotonic() - start_time) * 1000,
-                )
-
-            # ── Étape 3 : Résolution captcha ──
-            logger.info(f"[{monitor_id}] Résolution captcha…")
-            captcha_code = await _solve_captcha_image(page)
-            if not captcha_code:
-                page_excerpt = _extract_page_excerpt(await page.inner_text("body"))
-                return CheckResult(
-                    monitor_id=monitor_id, timestamp=timestamp,
-                    available=False, slots_count=0,
-                    message="Captcha non résolu — OCR indisponible",
-                    page_excerpt=page_excerpt,
-                    duration_ms=(time.monotonic() - start_time) * 1000,
-                )
-
-            # Remplir le champ captcha
-            captcha_input = await page.query_selector("#captchaFormulaireExtInput, input[name='captchaUsercode']")
-            if captcha_input:
-                await captcha_input.click()
-                await asyncio.sleep(0.3)
-                await captcha_input.fill(captcha_code)
-                await asyncio.sleep(random.uniform(0.5, 1.0))
-                logger.info(f"[{monitor_id}] Captcha rempli: '{captcha_code}'")
-            else:
-                return CheckResult(
-                    monitor_id=monitor_id, timestamp=timestamp,
-                    available=False, slots_count=0,
-                    message="Champ captcha introuvable",
-                    duration_ms=(time.monotonic() - start_time) * 1000,
-                )
-
-            # ── Étape 4 : Soumettre le formulaire captcha ──
-            submit_btn = await page.query_selector("button[type='submit']")
-            if submit_btn:
-                await submit_btn.click()
+            if rdv_link:
+                await page.mouse.move(random.randint(200, 500), random.randint(200, 400))
+                await asyncio.sleep(random.uniform(0.3, 0.7))
+                await rdv_link.hover()
+                await asyncio.sleep(random.uniform(0.4, 0.9))
+                await rdv_link.click()
                 try:
-                    await page.wait_for_load_state("networkidle", timeout=15000)
+                    await page.wait_for_load_state("networkidle", timeout=12000)
                 except PWTimeout:
                     pass
-                await asyncio.sleep(3)
-            else:
-                return CheckResult(
-                    monitor_id=monitor_id, timestamp=timestamp,
-                    available=False, slots_count=0,
-                    message="Bouton Suivant introuvable",
-                    duration_ms=(time.monotonic() - start_time) * 1000,
-                )
+                await asyncio.sleep(2)
+        elif "cgu" not in page.url:
+            await page.goto(PREFECTURE_HOME, wait_until="domcontentloaded")
+            await asyncio.sleep(2)
+            rdv_link = await page.query_selector("a[href*='cgu']")
+            if rdv_link:
+                await rdv_link.hover(); await asyncio.sleep(0.5); await rdv_link.click()
+                try: await page.wait_for_load_state("networkidle", timeout=12000)
+                except PWTimeout: pass
+                await asyncio.sleep(2)
 
-            # ── Étape 5 : Vérifier résultat captcha ──
-            body_text = await page.inner_text("body")
+        # Vérifier si CF a bloqué cette requête
+        body_text = await page.inner_text("body")
+        if "blocked" in body_text.lower() and "ray id" in body_text.lower():
+            # Invalider la session pour la prochaine fois
+            global _pref_cf_ok_at
+            _pref_cf_ok_at = 0.0
+            return CheckResult(
+                monitor_id=mid, timestamp=timestamp,
+                available=False, slots_count=0,
+                message="Bloqué CF — session réinitialisée au prochain cycle",
+                duration_ms=(time.monotonic() - start_time) * 1000,
+            )
+
+        # ── Résolution captcha avec jusqu'à 3 tentatives ──
+        captcha_solved = False
+        for attempt in range(3):
+            code = await _solve_captcha_image(page)
+            if not code:
+                break
+
+            captcha_input = await page.query_selector(
+                "#captchaFormulaireExtInput, input[name='captchaUsercode']"
+            )
+            if not captcha_input:
+                break
+
+            await captcha_input.click(click_count=3)
+            await captcha_input.fill(code)
+            await asyncio.sleep(random.uniform(0.3, 0.7))
+
+            submit_btn = await page.query_selector("button[type='submit']")
+            if not submit_btn:
+                break
+
+            await submit_btn.click()
+            try:
+                await page.wait_for_load_state("networkidle", timeout=12000)
+            except PWTimeout:
+                pass
+            await asyncio.sleep(2)
+
             current_url = page.url
-            logger.info(f"[{monitor_id}] Après captcha — URL: {current_url}")
+            body_text   = await page.inner_text("body")
+            body_lower  = body_text.lower()
 
-            # Captcha incorrect ?
-            if "captcha" in current_url.lower() or "cgu" in current_url.lower():
-                body_lower = body_text.lower()
-                if "incorrect" in body_lower or "invalide" in body_lower or "erreur" in body_lower:
-                    return CheckResult(
-                        monitor_id=monitor_id, timestamp=timestamp,
-                        available=False, slots_count=0,
-                        message=f"Captcha incorrect (OCR: '{captcha_code}') — réessai",
-                        duration_ms=(time.monotonic() - start_time) * 1000,
-                    )
+            # Captcha incorrect → rafraîchir et réessayer
+            if "cgu" in current_url or ("incorrect" in body_lower or "invalide" in body_lower):
+                logger.warning(f"[{mid}] Captcha incorrect (tentative {attempt+1}): '{code}'")
+                await _refresh_captcha(page)
+                await asyncio.sleep(1.5)
+                continue
 
-            # ── Étape 6 : Détecter disponibilité créneaux ──
-            page_excerpt = _extract_page_excerpt(body_text)
-            available, slots_count, message, _, slot_dates, booking_url = await _detect_availability(page)
+            captcha_solved = True
+            logger.info(f"[{mid}] Captcha résolu: '{code}' — URL: {current_url}")
+            break
 
-            # Enrichir le message
-            if available:
-                message = f"CRENEAU PREFECTURE 92 DISPONIBLE — {message}"
-                booking_url = booking_url or current_url
-                logger.info(f"[{monitor_id}] CRENEAU DISPONIBLE ! URL: {booking_url}")
-            else:
-                message = f"Aucun creneau Prefecture 92 — {message}"
-
-            duration_ms = (time.monotonic() - start_time) * 1000
+        if not captcha_solved:
+            # Revenir à l'accueil pour le prochain check
+            try:
+                await page.goto(PREFECTURE_HOME, wait_until="domcontentloaded")
+            except Exception:
+                pass
             return CheckResult(
-                monitor_id=monitor_id,
-                timestamp=timestamp,
-                available=available,
-                slots_count=slots_count,
-                message=message,
-                duration_ms=round(duration_ms, 1),
-                page_excerpt=page_excerpt,
-                slot_dates=slot_dates,
-                booking_url=booking_url or current_url,
-            )
-
-        except PWTimeout as e:
-            logger.warning(f"[{monitor_id}] Timeout: {e}")
-            if retry < settings.MAX_RETRIES:
-                await asyncio.sleep(settings.RETRY_BACKOFF_BASE ** retry + random.uniform(0, 1))
-                return await check_prefecture_appointment(retry + 1)
-            return CheckResult(
-                monitor_id=monitor_id, timestamp=timestamp,
+                monitor_id=mid, timestamp=timestamp,
                 available=False, slots_count=0,
-                message="Timeout — site inaccessible",
-                error=str(e), duration_ms=(time.monotonic() - start_time) * 1000,
+                message="Captcha non résolu après 3 tentatives — réessai prochain cycle",
+                duration_ms=(time.monotonic() - start_time) * 1000,
             )
-        except Exception as e:
-            logger.error(f"[{monitor_id}] Erreur: {e}")
-            if retry < settings.MAX_RETRIES:
-                await asyncio.sleep(settings.RETRY_BACKOFF_BASE ** (retry + 1) + random.uniform(0, 2))
-                return await check_prefecture_appointment(retry + 1)
-            return CheckResult(
-                monitor_id=monitor_id, timestamp=timestamp,
-                available=False, slots_count=0,
-                message="Erreur inattendue",
-                error=str(e), duration_ms=(time.monotonic() - start_time) * 1000,
-            )
-        finally:
-            if context:
-                await context.close()
-            if browser:
-                await browser.close()
+
+        # ── Détection créneaux ──
+        body_text    = await page.inner_text("body")
+        page_excerpt = _extract_page_excerpt(body_text)
+        current_url  = page.url
+
+        available, slots_count, message, _, slot_dates, booking_url = await _detect_availability(page)
+
+        if available:
+            message     = f"CRENEAU PREFECTURE 92 DISPONIBLE — {message}"
+            booking_url = booking_url or current_url
+        else:
+            message = f"Aucun creneau Prefecture 92 — {message}"
+
+        # Revenir à l'accueil pour le prochain check
+        try:
+            await page.goto(PREFECTURE_HOME, wait_until="domcontentloaded")
+        except Exception:
+            pass
+
+        return CheckResult(
+            monitor_id=mid, timestamp=timestamp,
+            available=available, slots_count=slots_count,
+            message=message,
+            duration_ms=round((time.monotonic() - start_time) * 1000, 1),
+            page_excerpt=page_excerpt,
+            slot_dates=slot_dates,
+            booking_url=booking_url or current_url,
+        )
+
+    except Exception as e:
+        logger.error(f"[{mid}] Erreur inattendue: {e}")
+        # Invalider la session
+        _pref_cf_ok_at = 0.0
+        return CheckResult(
+            monitor_id=mid, timestamp=timestamp,
+            available=False, slots_count=0,
+            message="Erreur — session réinitialisée",
+            error=str(e), duration_ms=(time.monotonic() - start_time) * 1000,
+        )
 
 
 async def check_appointment(
