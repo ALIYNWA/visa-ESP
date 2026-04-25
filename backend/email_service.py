@@ -123,6 +123,7 @@ def build_alert_email(
     detection_message: str,
     detected_at: datetime,
     instructions: List[str],
+    slot_dates: List[str] = [],
 ) -> tuple[str, str]:
     """Construit l'email d'alerte créneau détecté. Retourne (sujet, html)."""
 
@@ -166,6 +167,12 @@ def build_alert_email(
           </td>
         </tr>
       </table>
+
+      <!-- Dates disponibles -->
+      {f'''<div style="background:#041a10;border:2px solid #16a34a;border-radius:10px;padding:16px;margin-bottom:16px;">
+        <div style="font-size:0.8rem;font-weight:700;color:#6ee7b7;margin-bottom:10px;">📅 CRÉNEAU(X) DISPONIBLE(S) :</div>
+        {"".join(f'<div style="font-size:1rem;font-weight:900;color:#10b981;padding:6px 0;border-bottom:1px solid rgba(16,185,129,0.15);">✅ {d}</div>' for d in slot_dates)}
+      </div>''' if slot_dates else ''}
 
       <!-- Signal -->
       <div style="background:#060d1a;border:1px solid #1e3a5f;border-radius:8px;padding:12px 16px;margin-bottom:20px;">

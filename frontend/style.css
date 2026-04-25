@@ -156,6 +156,11 @@ main { max-width:1400px; margin:0 auto; padding:28px 20px 48px; display:flex; fl
 .slot-excerpt-label { font-size:0.7rem; color:#86efac; font-weight:700; padding:6px 10px; background:rgba(16,185,129,0.08); border-radius:6px 6px 0 0; border:1px solid rgba(16,185,129,0.2); border-bottom:none; margin-top:2px; }
 .slot-excerpt-text  { background:#030a10; border:1px solid rgba(16,185,129,0.2); border-radius:0 0 6px 6px; padding:8px 10px; font-size:0.73rem; color:#7cb897; font-family:monospace; max-height:120px; overflow-y:auto; white-space:pre-wrap; word-break:break-word; line-height:1.6; margin-bottom:12px; }
 
+/* ── Dates créneaux détectés ── */
+.slot-dates-label { font-size:0.7rem; color:#4ade80; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; }
+.slot-dates-box   { background:rgba(0,0,0,0.5); border:1px solid rgba(74,222,128,0.3); border-radius:8px; padding:8px 12px; display:flex; flex-direction:column; gap:6px; }
+.slot-date-item   { font-size:0.85rem; color:#86efac; font-weight:700; padding:5px 8px; background:rgba(16,185,129,0.12); border-radius:5px; border-left:3px solid #10b981; }
+
 .book-big {
   display:block; text-align:center; padding:13px 20px; border-radius:8px;
   font-size:0.95rem; font-weight:900; letter-spacing:0.5px; color:#fff; text-decoration:none;

@@ -9,10 +9,11 @@ Scraper éthique avec Playwright
 """
 import asyncio
 import random
+import re
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 
 from playwright.async_api import (
     async_playwright,
@@ -153,6 +154,68 @@ def _build_context_options() -> dict:
     }
 
 
+MONTHS_FR = {
+    "january":"JAN","february":"FEV","march":"MAR","april":"AVR","may":"MAI",
+    "june":"JUN","july":"JUL","august":"AOU","september":"SEP","october":"OCT",
+    "november":"NOV","december":"DEC",
+    "janvier":"JAN","février":"FEV","mars":"MAR","avril":"AVR","mai":"MAI",
+    "juin":"JUN","juillet":"JUL","août":"AOU","septembre":"SEP","octobre":"OCT",
+    "novembre":"NOV","décembre":"DEC",
+}
+
+def _extract_slot_dates(page_text: str) -> List[str]:
+    """
+    Extrait les dates réelles de créneaux disponibles depuis le texte de la page.
+    Retourne une liste de strings lisibles ex: ["Ven. 25 AVR 2026 à 10h30"]
+    """
+    dates_found = []
+    text = page_text
+
+    # Pattern 1 : DD/MM/YYYY hh:mm  ou  DD-MM-YYYY
+    p1 = re.findall(r'\b(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})(?:\s+(?:à|at)?\s*(\d{1,2}[h:]\d{2}))?\b', text)
+    for m in p1[:5]:
+        day, month, year, hour = m
+        date_str = f"{day.zfill(2)}/{month.zfill(2)}/{year}"
+        if hour:
+            date_str += f" à {hour.replace(':','h')}"
+        dates_found.append(f"RDV le {date_str}")
+
+    # Pattern 2 : "25 avril 2026" ou "25 April 2026"
+    p2 = re.findall(
+        r'\b(\d{1,2})\s+(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre'
+        r'|january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{4})'
+        r'(?:\s+(?:à|at)?\s*(\d{1,2}[h:]\d{2}))?',
+        text, re.IGNORECASE
+    )
+    for m in p2[:5]:
+        day, month_raw, year, hour = m
+        month_code = MONTHS_FR.get(month_raw.lower(), month_raw[:3].upper())
+        date_str = f"{day.zfill(2)} {month_code} {year}"
+        if hour:
+            date_str += f" à {hour.replace(':','h')}"
+        dates_found.append(f"RDV le {date_str}")
+
+    # Pattern 3 : YYYY-MM-DD (attributs data-date HTML)
+    p3 = re.findall(r'\b(20\d{2})-(\d{2})-(\d{2})\b', text)
+    for m in p3[:5]:
+        year, month, day = m
+        try:
+            from datetime import date
+            d = date(int(year), int(month), int(day))
+            months = ["JAN","FEV","MAR","AVR","MAI","JUN","JUL","AOU","SEP","OCT","NOV","DEC"]
+            dates_found.append(f"RDV le {day} {months[d.month-1]} {year}")
+        except Exception:
+            pass
+
+    # Dédoublonner et limiter
+    seen, unique = set(), []
+    for d in dates_found:
+        if d not in seen:
+            seen.add(d)
+            unique.append(d)
+    return unique[:5]
+
+
 def _is_geo_blocked(page_text: str) -> bool:
     t = page_text.lower()
     return any(p in t for p in GEO_BLOCK_PATTERNS)
@@ -170,10 +233,37 @@ def _extract_page_excerpt(page_text: str, max_chars: int = 600) -> str:
     return combined
 
 
-async def _detect_availability(page: Page) -> Tuple[bool, int, str, str]:
+async def _try_click_slot(page: Page) -> Optional[str]:
+    """
+    Tente de cliquer sur le premier créneau disponible pour le retenir temporairement.
+    Retourne l'URL de la page après le clic (lien à envoyer à l'utilisateur).
+    """
+    click_selectors = [
+        "table.datepicker td:not(.disabled):not(.unavailable):not(.past)",
+        ".available-date", ".slot-available", "td.available",
+        ".calendar-day.available", ".fc-day:not(.fc-day-disabled)",
+        "[data-date]:not(.disabled)",
+        "input[type='radio'][name*='date']",
+        ".rdv-slot:not(.disabled)", ".créneau-disponible",
+        "button[class*='available']", "a[class*='slot']",
+    ]
+    for selector in click_selectors:
+        try:
+            elements = await page.query_selector_all(selector)
+            visible = [el for el in elements if await el.is_visible()]
+            if visible:
+                await visible[0].click()
+                await asyncio.sleep(1.5)
+                return page.url
+        except Exception:
+            continue
+    return page.url
+
+
+async def _detect_availability(page: Page) -> Tuple[bool, int, str, str, List[str], Optional[str]]:
     """
     Détecte la disponibilité via plusieurs stratégies.
-    Retourne: (available, slots_count, message, page_excerpt)
+    Retourne: (available, slots_count, message, page_excerpt, slot_dates, booking_url)
     """
     try:
         page_text = (await page.inner_text("body")).strip()
@@ -185,7 +275,7 @@ async def _detect_availability(page: Page) -> Tuple[bool, int, str, str]:
 
     # --- Détection blocage géographique EN PREMIER ---
     if _is_geo_blocked(page_text_lower):
-        return False, 0, "GEO_BLOCKED: Accès refusé depuis cette région", page_excerpt
+        return False, 0, "GEO_BLOCKED: Accès refusé depuis cette région", page_excerpt, [], None
 
     # --- Stratégie 1 : Sélecteurs CSS calendrier ---
     slot_selectors = [
@@ -216,16 +306,20 @@ async def _detect_availability(page: Page) -> Tuple[bool, int, str, str]:
     # --- Stratégie 2 : Patterns textuels d'absence ---
     for pattern in NO_SLOT_PATTERNS:
         if pattern in page_text_lower:
-            return False, 0, f"Aucun creneau — '{pattern}' detecte", page_excerpt
+            return False, 0, f"Aucun creneau — '{pattern}' detecte", page_excerpt, [], None
 
     # --- Stratégie 3 : Patterns textuels de disponibilité ---
     for pattern in AVAILABLE_PATTERNS:
         if pattern in page_text_lower:
-            return True, max(slots_found, 1), f"Disponibilite detectee : '{pattern}'", page_excerpt
+            dates = _extract_slot_dates(page_text)
+            booking_url = await _try_click_slot(page)
+            return True, max(slots_found, 1), f"Disponibilite detectee : '{pattern}'", page_excerpt, dates, booking_url
 
     # --- Stratégie 4 : Créneaux CSS ---
     if slots_found > 0:
-        return True, slots_found, f"{slots_found} creneau(x) trouve(s) dans le calendrier", page_excerpt
+        dates = _extract_slot_dates(page_text)
+        booking_url = await _try_click_slot(page)
+        return True, slots_found, f"{slots_found} creneau(x) trouve(s) dans le calendrier", page_excerpt, dates, booking_url
 
     # --- Stratégie 5 : Formulaire de date actif ---
     try:
@@ -233,11 +327,12 @@ async def _detect_availability(page: Page) -> Tuple[bool, int, str, str]:
             "input[type='date']:not([disabled]), select[name*='date']:not([disabled])"
         )
         if date_input and await date_input.is_visible():
-            return True, 1, "Champ de date actif detecte", page_excerpt
+            dates = _extract_slot_dates(page_text)
+            return True, 1, "Champ de date actif detecte", page_excerpt, dates, page.url
     except PWError:
         pass
 
-    return False, 0, "Statut indetermine — aucun creneau detecte", page_excerpt
+    return False, 0, "Statut indetermine — aucun creneau detecte", page_excerpt, [], None
 
 
 async def check_appointment(
@@ -309,7 +404,7 @@ async def check_appointment(
             except PWTimeout:
                 pass
 
-            available, slots_count, message, page_excerpt = await _detect_availability(page)
+            available, slots_count, message, page_excerpt, slot_dates, booking_url = await _detect_availability(page)
 
             if "GEO_BLOCKED" in message and settings.PROXY_SERVER:
                 message = "GEO_BLOCKED: Proxy configuré mais toujours bloqué — vérifiez votre proxy"
@@ -323,6 +418,8 @@ async def check_appointment(
                 message=message,
                 duration_ms=round(duration_ms, 1),
                 page_excerpt=page_excerpt,
+                slot_dates=slot_dates,
+                booking_url=booking_url or target_url,
             )
 
         except PWTimeout as e:

@@ -11,7 +11,7 @@ def _now() -> datetime:
 
 
 class CheckResult(BaseModel):
-    monitor_id: str = "spain"          # "spain" | "france"
+    monitor_id: str = "spain"          # "spain" | "france" | "prefecture"
     timestamp: datetime
     available: bool
     slots_count: int
@@ -19,6 +19,8 @@ class CheckResult(BaseModel):
     duration_ms: Optional[float] = None
     error: Optional[str] = None
     page_excerpt: Optional[str] = None  # Extrait du texte de la page (600 chars max)
+    slot_dates: List[str] = []          # Dates réelles ex: ["Ven. 25 AVR 2026 à 10h30"]
+    booking_url: Optional[str] = None   # URL directe vers le créneau (pour clic immédiat)
 
     def to_log(self) -> str:
         status = "DISPONIBLE [OK]" if self.available else "Indisponible [--]"

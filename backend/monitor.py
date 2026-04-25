@@ -238,12 +238,13 @@ class Monitor:
             instructions_spain = instructions_by_monitor.get(self.monitor_id, instructions_by_monitor["spain"])
             subject, html = build_alert_email(
                 monitor_label=self.label,
-                booking_url=self.target_url,
+                booking_url=result.booking_url or self.target_url,
                 slots_count=result.slots_count,
                 check_number=self._total_checks,
                 detection_message=result.message,
                 detected_at=result.timestamp,
                 instructions=instructions_spain,
+                slot_dates=result.slot_dates,
             )
             ok, msg = send_email(
                 api_key=cfg["email_brevo_api_key"],

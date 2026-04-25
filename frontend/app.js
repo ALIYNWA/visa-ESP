@@ -61,7 +61,7 @@ function connectWS() {
 function handleMessage(msg) {
   switch (msg.type) {
     case "initial_state":
-      ["spain","france"].forEach(mid => {
+      ["spain","france","prefecture"].forEach(mid => {
         if (msg.data[mid]) applyMonitorState(mid, msg.data[mid]);
       });
       break;
@@ -75,7 +75,7 @@ function handleMessage(msg) {
     case "notification": {
       const mid  = msg.data.monitor_id || "spain";
       const ch   = (msg.data.channels || []).join(", ");
-      const flag = mid === "france" ? "🇫🇷" : "🇪🇸";
+      const flag = mid === "france" ? "🇫🇷" : mid === "prefecture" ? "🏛️" : "🇪🇸";
       appendLog(`${flag} Alerte envoyée → ${ch}`, "success", mid);
       showToast(`${flag} Notifié via ${ch} !`, "success");
       break;
@@ -138,7 +138,7 @@ function onCheckResult(mid, data) {
 
   if (data.available) {
     showSlotPanel(mid, data);
-    const flag = mid === "france" ? "🇫🇷" : "🇪🇸";
+    const flag = mid === "france" ? "🇫🇷" : mid === "prefecture" ? "🏛️" : "🇪🇸";
     showToast(`${flag} CRÉNEAU DISPONIBLE ! Réservez maintenant !`, "success", 12000);
   } else {
     hideSlotPanel(mid);
@@ -146,7 +146,7 @@ function onCheckResult(mid, data) {
 }
 
 function formatCheckLog(r) {
-  const flag = r.monitor_id === "france" ? "🇫🇷" : "🇪🇸";
+  const flag = r.monitor_id === "france" ? "🇫🇷" : r.monitor_id === "prefecture" ? "🏛️" : "🇪🇸";
   const icon = r.available ? "✓" : r.error ? "✗" : "–";
   const dur  = r.duration_ms ? ` (${Math.round(r.duration_ms)}ms)` : "";
   return `${flag} [#${r.check_number||"?"}] ${icon} ${r.message}${dur}`;
@@ -233,7 +233,29 @@ function showSlotPanel(mid, data) {
   // Signal (message de détection)
   $(`slot-msg-${mid}`).textContent = data.message || "–";
 
-  // Extrait de la page (ce que dit le site)
+  // ── Dates réelles des créneaux ──
+  const datesWrap = $(`slot-dates-wrap-${mid}`);
+  const datesBox  = $(`slot-dates-${mid}`);
+  if (datesWrap && datesBox) {
+    const dates = data.slot_dates || [];
+    if (dates.length > 0) {
+      datesBox.innerHTML = dates.map(d =>
+        `<div class="slot-date-item">📅 <strong>${escHtml(d)}</strong></div>`
+      ).join("");
+      datesWrap.style.display = "block";
+    } else {
+      datesBox.innerHTML = '<div class="slot-date-item" style="color:#64748b;">Dates en cours d\'extraction...</div>';
+      datesWrap.style.display = "block";
+    }
+  }
+
+  // ── Bouton lien direct vers le créneau retenu ──
+  const bookBtn = $(`book-btn-${mid}`);
+  if (bookBtn && data.booking_url) {
+    bookBtn.href = data.booking_url;
+  }
+
+  // Extrait de la page
   const excerptWrap = $(`slot-excerpt-wrap-${mid}`);
   const excerptText = $(`slot-excerpt-${mid}`);
   const excerpt = data.page_excerpt || "";
@@ -324,7 +346,7 @@ function updateControls(mid, running) {
 }
 
 function refreshRunningIndicator() {
-  const anyRunning = ["spain","france"].some(mid => !$(`btn-start-${mid}`).disabled);
+  const anyRunning = ["spain","france","prefecture"].some(mid => !$(`btn-start-${mid}`).disabled);
   $("running-indicator").style.display = anyRunning ? "inline-flex" : "none";
 }
 
